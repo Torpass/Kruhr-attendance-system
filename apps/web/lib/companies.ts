@@ -30,3 +30,9 @@ export function lastCompany(): string | null {
     return null;
   }
 }
+
+/** Empresa de la URL con su grupo (el catálogo de nómina y el equipo son del grupo). */
+export function useCurrentCompany(companyId: string) {
+  const { data: companies } = useCompanies();
+  return companies?.find((company) => company.id === companyId);
+}

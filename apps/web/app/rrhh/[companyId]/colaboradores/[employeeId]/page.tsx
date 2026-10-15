@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { ContractsCard } from "@/components/contracts-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, Card, EmptyState } from "@/components/ui/card";
@@ -173,6 +174,8 @@ export default function EmployeePage() {
           </div>
         )}
       </Card>
+
+      <ContractsCard companyId={companyId} employeeId={employeeId} />
 
       <Card className="p-0 sm:p-0">
         <div className="flex flex-wrap items-end gap-3 border-b border-borde p-4">

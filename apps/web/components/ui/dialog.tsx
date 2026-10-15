@@ -7,11 +7,13 @@ export function Dialog({
   open,
   onClose,
   title,
+  size = "md",
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  size?: "md" | "lg";
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -28,7 +30,7 @@ export function Dialog({
       ref={ref}
       onClose={onClose}
       aria-labelledby="dialog-title"
-      className="m-auto w-[min(32rem,calc(100%-2rem))] rounded-2xl border border-borde bg-white p-0 text-grafito shadow-kru-lg backdrop:bg-grafito/40"
+      className={`m-auto ${size === "lg" ? "w-[min(48rem,calc(100%-2rem))]" : "w-[min(32rem,calc(100%-2rem))]"} rounded-2xl border border-borde bg-white p-0 text-grafito shadow-kru-lg backdrop:bg-grafito/40`}
     >
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
