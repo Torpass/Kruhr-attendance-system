@@ -156,6 +156,17 @@ GET   /admin/groups                              superadmin: grupos con sus empr
 POST  /admin/groups                              { name, code? } → grupo + primera empresa
 POST  /admin/groups/:groupId/companies           { name, code?, rif? }
 PATCH /admin/companies/:companyId                { name?, rif?, active? }
+
+GET/POST  /groups/:groupId/structures            catálogo de nómina del grupo (admin, analista)
+GET/PATCH /groups/:groupId/structures/:id        PATCH con `rules` reemplaza todas las reglas (validadas con validateRules)
+GET/POST  /groups/:groupId/parameters            PUT /groups/:groupId/parameters/:id/values { dateFrom, value }
+GET/POST  /groups/:groupId/input-types
+GET/POST  /companies/:companyId/employees/:employeeId/contracts      PATCH /…/contracts/:id { dateEnd }
+GET/POST  /companies/:companyId/payroll-runs     { structureId, kind&date | from&to, name? } → calcula los recibos
+GET       /companies/:companyId/payroll-runs/:runId
+POST      /companies/:companyId/payroll-runs/:runId/(recompute|validate|pay|cancel)
+GET       /companies/:companyId/payslips/:id     PUT /…/payslips/:id/inputs { inputs: { BONO: 200 } }
+GET       /me/payslips   GET /me/payslips/:id     recibos validados o pagados del colaborador
 ```
 
 ## 6. Motor de cálculo (`packages/core`)

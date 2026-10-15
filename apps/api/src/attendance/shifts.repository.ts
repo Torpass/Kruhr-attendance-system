@@ -1,9 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
+import { localDateOf } from '@marcaje/core';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DB } from '../database/database.constants';
-import type { Database } from '../database/database.module';
+import type { Database, DbExecutor } from '../database/database.module';
 import {
   employees,
+  payrollRuns,
   shiftCorrections,
   shifts,
   users,
@@ -40,6 +54,38 @@ const snapshot = ({ clockIn, clockOut }: ShiftTimes): ShiftSnapshot => ({
   clockIn: clockIn.toISOString(),
   clockOut: clockOut?.toISOString() ?? null,
 });
+
+/** El turno cae en un período cuya nómina ya se validó o pagó. */
+export class PayrollClosedError extends Error {
+  constructor() {
+    super('El período ya está en una nómina validada o pagada');
+  }
+}
+
+/** Falla si algún día local de esos instantes está en un lote validado o pagado de la empresa. */
+async function assertPayrollOpen(
+  db: DbExecutor,
+  companyId: string,
+  instants: Date[],
+) {
+  const days = [...new Set(instants.map((instant) => localDateOf(instant)))];
+  const [closed] = await db
+    .select({ id: payrollRuns.id })
+    .from(payrollRuns)
+    .where(
+      and(
+        eq(payrollRuns.companyId, companyId),
+        inArray(payrollRuns.state, ['validated', 'paid']),
+        or(
+          ...days.map((day) =>
+            and(lte(payrollRuns.dateFrom, day), gte(payrollRuns.dateTo, day)),
+          ),
+        ),
+      ),
+    )
+    .limit(1);
+  if (closed) throw new PayrollClosedError();
+}
 
 /** Rango de instantes [from, to) por la hora de entrada. */
 export interface InstantRange {
@@ -146,6 +192,8 @@ export class ShiftsRepository {
       if (!current) return undefined;
 
       const next = apply(current);
+      // Un turno de un período ya validado no se toca (ni el día de origen ni el de destino).
+      await assertPayrollOpen(tx, companyId, [current.clockIn, next.clockIn]);
       const [updated] = await tx
         .update(shifts)
         .set({ ...next, updatedAt: sql`now()` })
@@ -170,6 +218,7 @@ export class ShiftsRepository {
     correction: { reason: string; correctedBy: string },
   ): Promise<Shift> {
     return this.db.transaction(async (tx) => {
+      await assertPayrollOpen(tx, companyId, [times.clockIn]);
       const [created] = await tx
         .insert(shifts)
         .values({ companyId, employeeId, ...times })

@@ -25,6 +25,7 @@ import type {
   ShiftsQuery,
 } from './attendance.schemas';
 import {
+  PayrollClosedError,
   ShiftsRepository,
   type InstantRange,
   type Shift,
@@ -55,6 +56,9 @@ function withMinutes<T extends Shift>(shift: T) {
 }
 
 function overlapConflict(error: unknown): never {
+  if (error instanceof PayrollClosedError) {
+    throw new ConflictException(`${error.message}: no se puede corregir`);
+  }
   const code = pgError(error)?.code;
   if (code === PG_EXCLUSION_VIOLATION || code === PG_UNIQUE_VIOLATION) {
     throw new ConflictException(
