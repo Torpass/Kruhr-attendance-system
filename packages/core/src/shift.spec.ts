@@ -1,4 +1,4 @@
-import { computeShift } from './shift';
+import { computeShift, isStaleOpenShift } from './shift';
 
 /** Hora de Caracas (UTC−4) → instante. */
 const caracas = (local: string) => new Date(`${local}-04:00`);
@@ -101,5 +101,17 @@ describe('computeShift', () => {
     expect(() => shift('2026-10-05T10:00', '2026-10-05T09:00')).toThrow(
       RangeError,
     );
+  });
+});
+
+describe('isStaleOpenShift', () => {
+  const clockIn = caracas('2026-10-05T22:00');
+
+  it('un turno abierto de menos de 16 h sigue en curso', () => {
+    expect(isStaleOpenShift(clockIn, caracas('2026-10-06T13:59'))).toBe(false);
+  });
+
+  it('a las 16 h ya es un olvido', () => {
+    expect(isStaleOpenShift(clockIn, caracas('2026-10-06T14:00'))).toBe(true);
   });
 });

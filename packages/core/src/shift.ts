@@ -83,3 +83,12 @@ export function computeShift(
     overtimeNight: overtime.night,
   };
 }
+
+/** Un turno abierto por 16 h o más es un olvido ("sin salida"): no se cierra marcando, lo corrige RRHH. */
+export const STALE_OPEN_SHIFT_MINUTES = 16 * 60;
+
+export function isStaleOpenShift(clockIn: Date, now: Date): boolean {
+  return (
+    now.getTime() - clockIn.getTime() >= STALE_OPEN_SHIFT_MINUTES * MINUTE_MS
+  );
+}
