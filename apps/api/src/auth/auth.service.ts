@@ -1,9 +1,27 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { SessionToken, SessionUser } from '../common/auth/session';
 import { AuthRepository } from './auth.repository';
-import type { EmployeeLoginInput, StaffLoginInput } from './auth.schemas';
-import { verifySecret } from './password';
+import { pgError, PG_UNIQUE_VIOLATION } from '../database/pg-error';
+import type {
+  EmployeeLoginInput,
+  RegisterInput,
+  StaffLoginInput,
+} from './auth.schemas';
+import { hashSecret, verifySecret } from './password';
+
+export interface OpenedSession {
+  user: SessionUser;
+  token: string;
+}
+
+/** Sesión abierta, o empresas entre las que el colaborador debe elegir. */
+export type EmployeeLoginResult =
+  OpenedSession | { companies: { id: string; name: string }[] };
 
 @Injectable()
 export class AuthService {
@@ -23,14 +41,67 @@ export class AuthService {
     return this.openSession({ sub: account.id, kind: 'staff' });
   }
 
-  /** Colaborador: empresa, cédula y PIN. */
-  async loginEmployee({ company, cedula, pin }: EmployeeLoginInput) {
-    const account = await this.repo.findEmployeeCredentials(company, cedula);
-    const valid = await verifySecret(account?.pinHash, pin);
-    if (!account || !valid) {
-      throw new UnauthorizedException('Empresa, cédula o PIN incorrectos');
+  /**
+   * Colaborador: cédula y PIN. Si el PIN coincide en varias empresas y no eligió una,
+   * devuelve las opciones sin abrir sesión. Las empresas solo se revelan con el PIN correcto.
+   */
+  async loginEmployee({
+    cedula,
+    pin,
+    companyId,
+  }: EmployeeLoginInput): Promise<EmployeeLoginResult> {
+    const accounts = await this.repo.findEmployeeCredentials(cedula);
+    const checks = await Promise.all(
+      accounts.length > 0
+        ? accounts.map((account) => verifySecret(account.pinHash, pin))
+        : [verifySecret(undefined, pin)],
+    );
+    const matches = accounts.filter((_, index) => checks[index]);
+
+    const chosen = companyId
+      ? matches.find((account) => account.company.id === companyId)
+      : matches.length === 1
+        ? matches[0]
+        : undefined;
+
+    if (chosen) {
+      return this.openSession({ sub: chosen.id, kind: 'employee' });
     }
-    return this.openSession({ sub: account.id, kind: 'employee' });
+    if (matches.length > 1 && !companyId) {
+      return { companies: matches.map((account) => account.company) };
+    }
+    throw new UnauthorizedException('Cédula o PIN incorrectos');
+  }
+
+  /** Una empresa se registra: grupo, primera empresa y su admin, con la sesión ya abierta. */
+  async register({
+    companyName,
+    companyCode,
+    name,
+    email,
+    password,
+  }: RegisterInput) {
+    let adminId: string;
+    try {
+      adminId = await this.repo.registerCompany({
+        companyName,
+        slug: companyCode,
+        adminName: name,
+        email,
+        passwordHash: await hashSecret(password),
+      });
+    } catch (error) {
+      const pg = pgError(error);
+      if (pg?.code === PG_UNIQUE_VIOLATION) {
+        throw new ConflictException(
+          pg.constraint_name === 'users_email_unique'
+            ? 'Ese correo ya está registrado'
+            : 'Ya existe una empresa con ese código. Elige otro.',
+        );
+      }
+      throw error;
+    }
+    return this.openSession({ sub: adminId, kind: 'staff' });
   }
 
   /** Carga el usuario vigente de un token. `undefined` si ya no existe o está inactivo. */
@@ -40,7 +111,7 @@ export class AuthService {
       : this.repo.findEmployeeSession(token.sub);
   }
 
-  private async openSession(token: SessionToken) {
+  private async openSession(token: SessionToken): Promise<OpenedSession> {
     const user = await this.resolveSession(token);
     if (!user) throw new UnauthorizedException();
     return { user, token: await this.jwt.signAsync(token) };

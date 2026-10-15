@@ -22,6 +22,7 @@
     "db:seed": "tsx src/database/seed.ts"
   },
   "dependencies": {
+    "@marcaje/core": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -80,6 +81,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@marcaje/core$": "<rootDir>/../../../packages/core/src"
+    }
   }
 }

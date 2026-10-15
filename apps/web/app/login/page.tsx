@@ -5,152 +5,210 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/ui/logo";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type SessionUser } from "@/lib/api";
 
 type Mode = "employee" | "staff";
+type Company = { id: string; name: string };
+type EmployeeLoginResponse = { user: SessionUser } | { companies: Company[] };
 
 const TABS: { mode: Mode; label: string }[] = [
   { mode: "employee", label: "Colaborador" },
   { mode: "staff", label: "Gestión" },
 ];
 
+function errorMessage(err: unknown) {
+  if (err instanceof ApiError && err.status === 429) {
+    return "Demasiados intentos. Espera un minuto.";
+  }
+  return err instanceof ApiError ? err.message : "No pudimos conectar con el servidor.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("employee");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Colaborador con varias empresas: guarda cédula y PIN mientras elige dónde marcar.
+  const [choice, setChoice] = useState<{
+    cedula: string;
+    pin: string;
+    companies: Company[];
+  } | null>(null);
 
   function changeMode(next: Mode) {
     setMode(next);
+    setChoice(null);
     setError(null);
   }
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = Object.fromEntries(new FormData(event.currentTarget));
+  async function run(action: () => Promise<void>) {
     setPending(true);
     setError(null);
     try {
-      await api(mode === "staff" ? "/auth/staff/login" : "/auth/employee/login", {
-        method: "POST",
-        body: JSON.stringify(form),
-      });
-      router.replace("/panel");
+      await action();
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 429
-          ? "Demasiados intentos. Espera un minuto."
-          : err instanceof ApiError
-            ? err.message
-            : "No pudimos conectar con el servidor.",
-      );
+      setError(errorMessage(err));
       setPending(false);
     }
   }
+
+  function loginEmployee(cedula: string, pin: string, companyId?: string) {
+    return run(async () => {
+      const result = await api<EmployeeLoginResponse>("/auth/employee/login", {
+        method: "POST",
+        body: JSON.stringify({ cedula, pin, companyId }),
+      });
+      if ("companies" in result) {
+        setChoice({ cedula, pin, companies: result.companies });
+        setPending(false);
+        return;
+      }
+      router.replace("/panel");
+    });
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    if (mode === "employee") {
+      void loginEmployee(String(form.get("cedula")), String(form.get("pin")));
+      return;
+    }
+    void run(async () => {
+      await api("/auth/staff/login", {
+        method: "POST",
+        body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
+      });
+      router.replace("/panel");
+    });
+  }
+
+  const errorBox = error && (
+    <p role="alert" className="rounded-lg bg-error-fondo px-3.5 py-2.5 text-sm text-error-texto">
+      {error}
+    </p>
+  );
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm rounded-2xl border border-borde bg-white p-6 shadow-kru-lg sm:p-8">
         <Logo />
-        <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.15] tracking-[-0.025em]">
-          Inicia sesión
-        </h1>
-        <p className="mt-2 text-sm text-gris">
-          Entra para marcar o gestionar a tu equipo.
-        </p>
 
-        <div
-          role="tablist"
-          aria-label="Tipo de acceso"
-          className="mt-6 grid grid-cols-2 gap-1 rounded-lg bg-hueso p-1"
-        >
-          {TABS.map((tab) => (
-            <button
-              key={tab.mode}
-              type="button"
-              role="tab"
-              id={`tab-${tab.mode}`}
-              aria-selected={mode === tab.mode}
-              aria-controls="login-form"
-              onClick={() => changeMode(tab.mode)}
-              className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-                mode === tab.mode
-                  ? "bg-white text-grafito shadow-kru"
-                  : "text-gris hover:text-grafito"
-              }`}
+        {choice ? (
+          <section aria-labelledby="choose-company" className="mt-6">
+            <h1
+              id="choose-company"
+              className="text-[1.75rem] font-bold leading-[1.15] tracking-[-0.025em]"
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <form
-          key={mode}
-          id="login-form"
-          role="tabpanel"
-          aria-labelledby={`tab-${mode}`}
-          onSubmit={onSubmit}
-          className="mt-5 flex flex-col gap-4"
-        >
-          {mode === "employee" ? (
-            <>
-              <Input
-                label="Código de empresa"
-                name="company"
-                autoComplete="organization"
-                autoCapitalize="none"
-                placeholder="empresa-a-norte"
-                required
-              />
-              <Input
-                label="Cédula"
-                name="cedula"
-                inputMode="numeric"
-                autoComplete="username"
-                placeholder="12345678"
-                required
-              />
-              <Input
-                label="PIN"
-                name="pin"
-                type="password"
-                inputMode="numeric"
-                autoComplete="current-password"
-                pattern="\d{4,6}"
-                title="De 4 a 6 dígitos"
-                required
-              />
-            </>
-          ) : (
-            <>
-              <Input
-                label="Correo"
-                name="email"
-                type="email"
-                autoComplete="username"
-                required
-              />
-              <Input
-                label="Contraseña"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </>
-          )}
-          {error && (
-            <p
-              role="alert"
-              className="rounded-lg bg-error-fondo px-3.5 py-2.5 text-sm text-error-texto"
-            >
-              {error}
+              ¿Dónde vas a marcar?
+            </h1>
+            <p className="mt-2 text-sm text-gris">
+              Trabajas en varias empresas. Elige en cuál registras tu jornada.
             </p>
-          )}
-          <Button type="submit" size="lg" disabled={pending} className="mt-2 w-full">
-            {pending ? "Entrando…" : "Entrar"}
-          </Button>
-        </form>
+            <ul className="mt-6 flex flex-col gap-2">
+              {choice.companies.map((company) => (
+                <li key={company.id}>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    disabled={pending}
+                    className="w-full justify-start"
+                    onClick={() => void loginEmployee(choice.cedula, choice.pin, company.id)}
+                  >
+                    {company.name}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {errorBox && <div className="mt-4">{errorBox}</div>}
+            <button
+              type="button"
+              onClick={() => changeMode("employee")}
+              className="mt-4 text-sm font-semibold text-kru-700 hover:text-kru-800"
+            >
+              Usar otra cédula
+            </button>
+          </section>
+        ) : (
+          <>
+            <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.15] tracking-[-0.025em]">
+              Inicia sesión
+            </h1>
+            <p className="mt-2 text-sm text-gris">Entra para marcar o gestionar a tu equipo.</p>
+
+            <div
+              role="tablist"
+              aria-label="Tipo de acceso"
+              className="mt-6 grid grid-cols-2 gap-1 rounded-lg bg-hueso p-1"
+            >
+              {TABS.map((tab) => (
+                <button
+                  key={tab.mode}
+                  type="button"
+                  role="tab"
+                  id={`tab-${tab.mode}`}
+                  aria-selected={mode === tab.mode}
+                  aria-controls="login-form"
+                  onClick={() => changeMode(tab.mode)}
+                  className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                    mode === tab.mode
+                      ? "bg-white text-grafito shadow-kru"
+                      : "text-gris hover:text-grafito"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <form
+              key={mode}
+              id="login-form"
+              role="tabpanel"
+              aria-labelledby={`tab-${mode}`}
+              onSubmit={onSubmit}
+              className="mt-5 flex flex-col gap-4"
+            >
+              {mode === "employee" ? (
+                <>
+                  <Input
+                    label="Cédula"
+                    name="cedula"
+                    inputMode="numeric"
+                    autoComplete="username"
+                    placeholder="12345678"
+                    required
+                  />
+                  <Input
+                    label="PIN"
+                    name="pin"
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="current-password"
+                    pattern="\d{4,6}"
+                    title="De 4 a 6 dígitos"
+                    required
+                  />
+                </>
+              ) : (
+                <>
+                  <Input label="Correo" name="email" type="email" autoComplete="username" required />
+                  <Input
+                    label="Contraseña"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                  />
+                </>
+              )}
+              {errorBox}
+              <Button type="submit" size="lg" disabled={pending} className="mt-2 w-full">
+                {pending ? "Entrando…" : "Entrar"}
+              </Button>
+            </form>
+          </>
+        )}
       </div>
     </main>
   );

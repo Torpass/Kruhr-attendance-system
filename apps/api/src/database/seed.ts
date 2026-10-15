@@ -12,7 +12,7 @@ import {
 import { connectForScript } from './script-client';
 
 /**
- * Datos de demo: superadmin, Empresa A (dos sub-empresas: admin, analista y colaborador)
+ * Datos de demo: superadmin, Empresa A (dos sub-empresas: admin, analista y una colaboradora en ambas)
  * y Empresa B (admin). Es idempotente: se puede correr de nuevo para rotar las claves.
  * Las claves vienen de variables SEED_*; nunca se escriben en el código.
  */
@@ -133,15 +133,18 @@ async function main() {
         },
         [aNorte],
       );
+      // Ana trabaja en las dos empresas del grupo A: al entrar elige en cuál marca.
       const pinHash = await hashSecret(env.SEED_DEMO_PIN);
       await tx
         .insert(employees)
-        .values({
-          companyId: aNorte,
-          cedula: '12345678',
-          name: 'Ana Pérez',
-          pinHash,
-        })
+        .values(
+          [aNorte, aSur].map((companyId) => ({
+            companyId,
+            cedula: '12345678',
+            name: 'Ana Pérez',
+            pinHash,
+          })),
+        )
         .onConflictDoUpdate({
           target: [employees.companyId, employees.cedula],
           set: { pinHash, active: true },

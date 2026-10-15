@@ -15,7 +15,7 @@ Basado en [`prueba-tecnica-kru-marcaje.md`](../prueba-tecnica-kru-marcaje.md). L
 | Validación | **Zod** + un `ZodValidationPipe` propio (~15 líneas) | Los mismos esquemas validan la API y los formularios de la web (`packages/contracts`) | class-validator (duplica las validaciones en el front) |
 | ORM | **Drizzle ORM** | SQL explícito, migraciones versionadas y soporte nativo de índices parciales (un turno abierto por persona) y `CHECK`. Se expone en Nest como un provider `DB` | Prisma (los índices parciales requieren SQL a mano), TypeORM (tipado débil) |
 | Base de datos | **Supabase, usado solo como Postgres gestionado** | Tiene un panel con editor de tablas, cómodo para el desarrollo y la demo, y deja Storage y Realtime disponibles para los siguientes pasos. No usamos su Auth ni su API REST: la única puerta a los datos es NestJS | Neon (sin pausa por inactividad, pero sin panel ni extras) |
-| Auth | **`@nestjs/jwt`** + **argon2**, JWT en cookie `httpOnly; Secure; SameSite=Lax` | Los colaboradores **no tienen email**: entran con empresa + cédula + PIN. Un proveedor gestionado no modela eso | Supabase Auth, Clerk, Passport (capa extra innecesaria para JWT simple) |
+| Auth | **`@nestjs/jwt`** + **argon2**, JWT en cookie `httpOnly; Secure; SameSite=Lax` | Los colaboradores **no tienen email**: entran con cédula + PIN y, si trabajan en varias empresas, eligen dónde marcar. Un proveedor gestionado no modela eso | Supabase Auth, Clerk, Passport (capa extra innecesaria para JWT simple) |
 | Seguridad HTTP | `helmet`, `@nestjs/throttler` en login y marcaje | Protege contra fuerza bruta del PIN (4–6 dígitos) | — |
 | Fechas | **`@date-fns/tz`** (`TZDate` en `America/Caracas`) | Cortes de 05:00 y 19:00 en hora local sin aritmética manual de offsets | Luxon (más pesado), offset fijo −4 a mano (frágil si cambia la ley) |
 | Frontend | **Next.js 16 (App Router) + React 19 + Tailwind v4**, PWA con `app/manifest.ts` | Una sola app: `/marcar` móvil y `/rrhh` desktop, con el design system de Kru. Rutas por archivos, layouts anidados para el shell de RRHH, `next/font` para Inter y rewrites para tener un solo origen. Se despliega en Vercel sin configuración | React + Vite (hay que armar el router, el proxy y la PWA a mano), Expo (exagerado para un botón) |
@@ -29,7 +29,7 @@ Basado en [`prueba-tecnica-kru-marcaje.md`](../prueba-tecnica-kru-marcaje.md). L
 
 - **Conexión:** Nest y Drizzle se conectan con `DATABASE_URL` al **Transaction pooler** de Supavisor (puerto 6543 de `aws-1-us-west-2.pooler.supabase.com`, con `sslmode=require`) y `prepare: false` en postgres.js. En el plan gratuito, la conexión directa es solo IPv6 y Render no la alcanza; el pooler acepta IPv4. El Session pooler (5432) no respondió en las pruebas, y el modo transacción alcanza porque no usamos estado de sesión (`SET`, advisory locks, `LISTEN`). Las migraciones usan la misma URL.
 - **Data API (PostgREST) deshabilitada** en *Project Settings → Data API*. Además, RLS queda activo en todas las tablas sin ninguna política, así que aunque alguien obtenga la clave `anon`, no lee nada. El rol de Nest es dueño de las tablas y no lo afecta.
-- **No usamos Supabase Auth.** La tabla `users` y el login son propios (empresa + cédula + PIN).
+- **No usamos Supabase Auth.** La tabla `users` y el login son propios (cédula + PIN para los colaboradores).
 - **Pausa por inactividad:** el plan gratuito pausa el proyecto tras 7 días sin actividad, y reactivarlo es manual. Para evitarlo, un workflow de GitHub Actions llama cada 3 días a `GET /api/health`, que hace `SELECT 1` contra la base. Lo documentamos en el README.
 - **Tests y desarrollo local:** Postgres 16 en `docker compose` (`pnpm db:up`). Los tests e2e nunca tocan el proyecto de Supabase.
 
@@ -101,7 +101,7 @@ docs/
 - `proxy.ts` solo comprueba si existe la cookie para redirigir a `/login`. Es comodidad de UX, **no** autorización; quien decide es Nest.
 - Las pantallas son Client Components con TanStack Query: son interactivas (marcar, corregir, filtrar períodos) y detrás de login no aportan SEO ni SSR.
 - **El rewrite mantiene un solo origen.** El navegador solo ve el dominio de Vercel, la cookie es *first-party* (funciona en Safari iOS) y no hace falta CORS.
-- **IP real del cliente:** Nest corre detrás de dos proxies (Vercel y Render), así que activamos `trust proxy` y el throttler limita el login por **empresa + cédula**, además de por IP.
+- **IP real del cliente:** Nest corre detrás de dos proxies (Vercel y Render), así que activamos `trust proxy` y el throttler limita el login por **cédula** (o correo), además de por IP.
 
 ## 2.1 Roles
 
@@ -126,22 +126,28 @@ Decisiones:
 
 ## 5. API
 
+Todas las rutas van bajo `/api`. Las de `/companies/:companyId/*` pasan por `CompanyScopeGuard`: la empresa debe estar entre las de la sesión, o la respuesta es 404.
+
 ```text
-POST /auth/register-company     crea grupo + empresa + admin
+POST /auth/register             público: crea grupo + empresa + admin y abre la sesión
 POST /auth/staff/login          superadmin, admin, analista: email + password
-POST /auth/employee/login       colaborador: código de empresa + cédula + PIN
+POST /auth/employee/login       colaborador: cédula + PIN (+ companyId si trabaja en varias empresas)
 POST /auth/logout   GET /auth/me
 
-POST /me/punch                  abre o cierra el turno (hora del servidor)
-GET  /me/today                  estado + turnos de hoy
+POST /me/clock-in               abre un turno (hora del servidor); 409 si ya hay uno abierto
+POST /me/clock-out              cierra el turno abierto; 409 si no hay o si es un olvido de 16 h o más
+GET  /me/today                  turno abierto + turnos de hoy
+GET  /me/shifts?from&to         historial (con minutos clasificados)
 
-GET    /admin/employees         POST /admin/employees    PATCH /admin/employees/:id
-GET    /admin/today             { dentro[], sinMarcar[], sinSalida[] }
-GET    /admin/shifts?from&to&userId
-PATCH  /admin/shifts/:id        { clockIn?, clockOut?, reason }   ← reason obligatorio
-POST   /admin/shifts            turno manual (olvido total), también con reason
-GET    /admin/periods?from&to   cálculo por colaborador + alertas
-GET    /admin/periods/export.csv?from&to
+GET  /companies                                  empresas que la sesión puede gestionar
+GET  /companies/:companyId/employees             POST (admin, analista)   PATCH /:employeeId (admin)
+GET  /companies/:companyId/today                 { counts, inside[], missingClockOut[], notClockedIn[], finished[] }
+GET  /companies/:companyId/shifts?from&to&employeeId
+POST /companies/:companyId/shifts                turno manual { employeeId, clockIn, clockOut, reason }
+PATCH /companies/:companyId/shifts/:shiftId      { clockIn?, clockOut?, reason }   ← reason obligatorio
+GET  /companies/:companyId/shifts/:shiftId/corrections
+GET  /companies/:companyId/periods?kind=week|first_half|second_half&date   (o ?from&to)
+GET  /companies/:companyId/periods/export.csv    mismos parámetros
 ```
 
 ## 6. Motor de cálculo (`packages/core`)
@@ -181,8 +187,9 @@ Las vistas por rol y por fase están en [`requisitos.md` §3](requisitos.md#3-ca
 
 1. La ventana nocturna es `[19:00, 05:00)`: incluye las 19:00 y excluye las 05:00.
 2. Las quincenas van del 1 al 15 y del 16 a fin de mes. La semana va de lunes a domingo.
-3. **Ver el día:** "Dentro" son los turnos abiertos que empezaron hoy. "Sin salida" son los turnos abiertos de días anteriores (olvidos) y los que pasan de un umbral (por ejemplo 16 h). "No ha marcado" son los colaboradores activos sin turno con fecha de hoy.
-4. Un turno abierto no se calcula hasta que RRHH lo cierra con una corrección.
+3. **Ver el día:** "Dentro" son los turnos abiertos de menos de 16 h (incluye un turno nocturno que empezó ayer). "Sin salida" son los turnos abiertos de 16 h o más: el colaborador no puede cerrarlos marcando, los corrige RRHH. "No ha marcado" son los colaboradores activos sin turno abierto ni turno que empiece hoy.
+4. Un turno abierto no se calcula hasta que se cierra. En el período se cuenta como pendiente.
+6. **El período incluye** a todos los colaboradores activos (aunque tengan 0 h) y a los inactivos que trabajaron en él, para que desactivar a alguien a mitad de quincena no le quite horas.
 5. Los minutos se truncan al minuto en el que ocurre el marcaje (los segundos se ignoran) para evitar diferencias de redondeo.
 
 ## 9. Fases de trabajo
