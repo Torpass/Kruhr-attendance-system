@@ -134,7 +134,7 @@ El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore),
 
 ### 4.3 Reglas salariales con tipos fijos (fase B)
 
-`calcularRecibo(contrato, estructura, horas, entradas, parámetros, período)` recorre las reglas en orden de `sequence`. Cada regla se arma combinando estos campos:
+`computePayslip({ wage, rules, workedMinutes, inputs, parameters, period })`, en [`packages/core/src/payroll.ts`](../packages/core/src/payroll.ts), recorre las reglas en orden de `sequence`. Cada regla se arma combinando estos campos:
 
 | Campo | Valores |
 | --- | --- |
@@ -152,15 +152,17 @@ El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore),
 
 | Código | Cálculo |
 | --- | --- |
-| BASIC | `daily_wage` × `period_days` × 100 % |
+| BASIC | `monthly_wage` × 1 × 50 % (media quincena) |
 | HED | `hourly_wage` × `OT_DAY` × 150 % |
 | HEN | `hourly_wage` × `OT_NIGHT` × 195 % |
 | BN | `hourly_wage` × `NIGHT` × 30 % |
-| GROSS | `percentage_of` [BASIC, HED, HEN, BN] × 100 % |
-| IVSS | `weekly_wage` (tope `TOPE_IVSS`) × `mondays` × −4 % |
-| RPE | `weekly_wage` (tope `TOPE_IVSS`) × `mondays` × −0,5 % |
+| BONO | entrada `BONO` × 100 % (monto) |
+| GROSS | `percentage_of` [BASIC, HED, HEN, BN, BONO] × 100 % |
+| IVSS | `weekly_wage` (tope `TOPE_IVSS_SEMANAL`) × `mondays` × −4 % |
+| RPE | `weekly_wage` (tope `TOPE_RPE_SEMANAL`) × `mondays` × −0,5 % |
 | FAOV | `percentage_of` [GROSS] × −1 % |
-| NET | `percentage_of` [GROSS, IVSS, RPE, FAOV] × 100 % |
+| DESC | entrada `DESC` × −100 % (monto) |
+| NET | `percentage_of` [GROSS, IVSS, RPE, FAOV, DESC] × 100 % |
 
 ---
 
@@ -200,29 +202,37 @@ shift_corrections id, shift_id, company_id, corrected_by → users, reason, befo
 - **`btree_gist`** se instala en el esquema `extensions`, que es la convención de Supabase.
 - **El superadmin no tiene filas en `user_companies`:** accede a todo.
 
-### 5.2 Fase B (migración pendiente, se escribe al empezar la nómina)
+### 5.2 Fase B (migraciones `0002_payroll`, `0003_contracts_no_overlap` y `0004_payroll_runs_no_overlap`)
 
 ```text
-payroll_parameters        id, group_id, code, name                     UNIQUE (group_id, code)
-payroll_parameter_values  parameter_id, date_from, value               PK (parameter_id, date_from)
+payroll_parameters        id, group_id, code, name                                    UNIQUE (group_id, code)
+payroll_parameter_values  parameter_id, date_from, value                               PK (parameter_id, date_from)
+input_types               id, group_id, code, name                                     UNIQUE (group_id, code)
 salary_structures         id, group_id, code, name, schedule_pay (weekly|semi_monthly|monthly), active
-salary_rules              id, structure_id, code, name, sequence, appears_on_payslip,
-                          condition, quantity_source, quantity_code?, amount_type, amount_fix?,
-                          base_codes text[]?, amount_cap_param?, rate, active   UNIQUE (structure_id, code)
-input_types               id, group_id, code, name                     UNIQUE (group_id, code)
-contracts                 id, employee_id, structure_id, wage, date_start, date_end?
-                          EXCLUDE gist (employee_id =, daterange &&)   ← un contrato vigente a la vez
-payslip_runs              id, company_id, structure_id, date_from, date_to,
-                          state (draft|computed|validated|paid|cancelled), created_by
-payslips                  id, run_id, employee_id, contract_id, state, gross, net, computed_at
-payslip_worked_hours      payslip_id, code, minutes                   ← copia de las horas al momento del cálculo
-payslip_inputs            payslip_id, input_type_id, amount
-payslip_lines             payslip_id, rule_id, code, name, sequence, quantity, amount, rate, total, appears_on_payslip
+salary_rules              id, structure_id, code, name, sequence, appears_on_payslip, condition, quantity_source,
+                          quantity_code?, amount_type, amount_fix?, base_codes text[]?, amount_cap_param?, rate
+                          UNIQUE (structure_id, code) · UNIQUE (structure_id, sequence)
+contracts                 id, company_id, employee_id, structure_id, wage, date_start, date_end?
+                          FK (employee_id, company_id) → employees · CHECK wage > 0
+                          EXCLUDE gist (employee_id =, daterange(date_start, date_end) &&)   ← un contrato vigente a la vez
+payroll_runs              id, company_id, structure_id, name, date_from, date_to,
+                          state (computed|validated|paid|cancelled), created_by, computed_at
+                          EXCLUDE gist (company_id =, structure_id =, daterange &&) WHERE state <> 'cancelled'
+payslips                  id, run_id, company_id, employee_id, contract_id, wage, earnings, deductions, net
+                          UNIQUE (run_id, employee_id)
+payslip_worked_hours      payslip_id, code (WORK|NIGHT|OT_DAY|OT_NIGHT), minutes      ← copia de las horas del cálculo
+payslip_inputs            payslip_id, code, amount                                     ← entradas por código
+payslip_lines             payslip_id, code, name, sequence, quantity, amount, rate, total, appears_on_payslip
 ```
 
-Las líneas copian el código y el nombre de la regla. Así el recibo histórico no cambia si después se edita la regla, y no hace falta el versionado de reglas que tiene Binaural.
+**Ciclo de vida del lote**
+- **Crear:** se calcula de inmediato (`computed`). Hay un recibo por cada colaborador con contrato de esa estructura que toque el período; si cambió de contrato a mitad de período, rige el último.
+- **Recalcular / cambiar entradas:** solo en `computed`. Toma las horas actuales de la asistencia, las reglas actuales de la estructura y los parámetros vigentes al cierre del período.
+- **Validar:** exige que los colaboradores del lote no tengan turnos abiertos en el período, porque esas horas no se pagarían. Una vez validado, el lote queda fijo y **bloquea** las correcciones y los turnos manuales en su rango. Lo hace `ShiftsRepository`, dentro de la transacción de la corrección.
+- **Pagar:** de `validated` a `paid`. **Anular:** desde `computed` o `validated`. Un lote anulado deja de bloquear y ya no cuenta para los solapes.
+- **El colaborador** ve sus recibos validados o pagados en `/marcar/recibos`, solo con las líneas visibles.
 
----
+Las líneas copian el código y el nombre de la regla. Así el recibo histórico no cambia si después se edita la regla, y no hace falta el versionado de reglas que tiene Binaural.
 
 ## 6. Autenticación
 

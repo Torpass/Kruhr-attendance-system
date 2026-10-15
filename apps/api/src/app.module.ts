@@ -11,6 +11,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { TenantScopeGuard } from './companies/tenant-scope.guard';
 import { DatabaseErrorFilter } from './common/filters/database-error.filter';
 import { EmployeesModule } from './employees/employees.module';
+import { PayrollModule } from './payroll/payroll.module';
 import { PeriodsModule } from './periods/periods.module';
 import { StaffModule } from './staff/staff.module';
 import { validateEnv, type Env } from './config/env';
@@ -47,6 +48,7 @@ import { HealthModule } from './health/health.module';
     AttendanceModule,
     PeriodsModule,
     StaffModule,
+    PayrollModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
