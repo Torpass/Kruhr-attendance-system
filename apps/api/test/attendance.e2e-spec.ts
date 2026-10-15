@@ -1,166 +1,40 @@
-import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
 import request from 'supertest';
 import type TestAgent from 'supertest/lib/agent';
-import { AppModule } from '../src/app.module';
-import { setupApp } from '../src/app.setup';
-import { hashSecret } from '../src/auth/password';
 import * as schema from '../src/database/schema';
-import { TEST_DATABASE_URL } from './test-database';
+import {
+  connectTestDatabase,
+  loginEmployee,
+  loginStaff,
+  seedTenants,
+  startApp,
+} from './fixtures';
 
 /**
  * Integración contra Postgres real: autorización por rol y por empresa, marcaje,
  * correcciones, ver el día, período y CSV. Requiere `pnpm db:up` (o TEST_DATABASE_URL).
  */
-const PASSWORD = 'clave-de-pruebas';
-const PIN = '4321';
 const caracas = (local: string) => new Date(`${local}-04:00`);
 
 describe('Asistencia (integración)', () => {
   let app: NestExpressApplication;
-  const client = postgres(TEST_DATABASE_URL, { max: 2, onnotice: () => {} });
-  const db = drizzle(client, { schema, casing: 'snake_case' });
-
-  const ids = {} as Record<
-    | 'groupA'
-    | 'groupB'
-    | 'norte'
-    | 'sur'
-    | 'b'
-    | 'ana'
-    | 'anaSur'
-    | 'luis'
-    | 'bea',
-    string
-  >;
+  const { client, db } = connectTestDatabase();
+  let ids: Awaited<ReturnType<typeof seedTenants>>;
   const agents = {} as Record<
     'superadmin' | 'adminA' | 'analystA' | 'adminB' | 'ana' | 'luis',
     TestAgent
   >;
 
-  async function seed() {
-    await db.execute(
-      sql`truncate shift_corrections, shifts, employees, user_companies, users, companies, company_groups cascade`,
-    );
-    const [passwordHash, pinHash] = await Promise.all([
-      hashSecret(PASSWORD),
-      hashSecret(PIN),
-    ]);
-
-    const [groupA, groupB] = await db
-      .insert(schema.companyGroups)
-      .values([
-        { name: 'Grupo A', slug: 'grupo-a' },
-        { name: 'Grupo B', slug: 'grupo-b' },
-      ])
-      .returning();
-    const [norte, sur, b] = await db
-      .insert(schema.companies)
-      .values([
-        { groupId: groupA.id, name: 'A Norte', slug: 'a-norte' },
-        { groupId: groupA.id, name: 'A Sur', slug: 'a-sur' },
-        { groupId: groupB.id, name: 'B', slug: 'b' },
-      ])
-      .returning();
-    const staff = await db
-      .insert(schema.users)
-      .values([
-        {
-          role: 'superadmin',
-          name: 'Super',
-          email: 'super@t.test',
-          passwordHash,
-        },
-        {
-          role: 'admin',
-          groupId: groupA.id,
-          name: 'Admin A',
-          email: 'admin-a@t.test',
-          passwordHash,
-        },
-        {
-          role: 'analyst',
-          groupId: groupA.id,
-          name: 'Analista A',
-          email: 'analista-a@t.test',
-          passwordHash,
-        },
-        {
-          role: 'admin',
-          groupId: groupB.id,
-          name: 'Admin B',
-          email: 'admin-b@t.test',
-          passwordHash,
-        },
-      ])
-      .returning();
-    await db.insert(schema.userCompanies).values([
-      { userId: staff[1].id, companyId: norte.id, groupId: groupA.id },
-      { userId: staff[1].id, companyId: sur.id, groupId: groupA.id },
-      { userId: staff[2].id, companyId: norte.id, groupId: groupA.id },
-      { userId: staff[3].id, companyId: b.id, groupId: groupB.id },
-    ]);
-    const [ana, anaSur, luis, bea] = await db
-      .insert(schema.employees)
-      .values([
-        { companyId: norte.id, cedula: '12345678', name: 'Ana Pérez', pinHash },
-        { companyId: sur.id, cedula: '12345678', name: 'Ana Pérez', pinHash },
-        { companyId: norte.id, cedula: '87654321', name: 'Luis Gil', pinHash },
-        { companyId: b.id, cedula: '11111111', name: 'Bea Ruiz', pinHash },
-      ])
-      .returning();
-
-    Object.assign(ids, {
-      groupA: groupA.id,
-      groupB: groupB.id,
-      norte: norte.id,
-      sur: sur.id,
-      b: b.id,
-      ana: ana.id,
-      anaSur: anaSur.id,
-      luis: luis.id,
-      bea: bea.id,
-    });
-  }
-
-  async function staffAgent(email: string) {
-    const agent = request.agent(app.getHttpServer());
-    await agent
-      .post('/api/auth/staff/login')
-      .send({ email, password: PASSWORD })
-      .expect(200);
-    return agent;
-  }
-
-  async function employeeAgent(cedula: string, companyId?: string) {
-    const agent = request.agent(app.getHttpServer());
-    const res = await agent
-      .post('/api/auth/employee/login')
-      .send({ cedula, pin: PIN, companyId })
-      .expect(200);
-    expect(res.body).toHaveProperty('user');
-    return agent;
-  }
-
   beforeAll(async () => {
-    await seed();
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleRef.createNestApplication<NestExpressApplication>();
-    setupApp(app, app.get(ConfigService));
-    await app.init();
-
-    agents.superadmin = await staffAgent('super@t.test');
-    agents.adminA = await staffAgent('admin-a@t.test');
-    agents.analystA = await staffAgent('analista-a@t.test');
-    agents.adminB = await staffAgent('admin-b@t.test');
-    agents.ana = await employeeAgent('12345678', ids.norte);
-    agents.luis = await employeeAgent('87654321');
+    ids = await seedTenants(db);
+    app = await startApp();
+    agents.superadmin = await loginStaff(app, 'super@t.test');
+    agents.adminA = await loginStaff(app, 'admin-a@t.test');
+    agents.analystA = await loginStaff(app, 'analista-a@t.test');
+    agents.adminB = await loginStaff(app, 'admin-b@t.test');
+    agents.ana = await loginEmployee(app, '12345678', ids.norte);
+    agents.luis = await loginEmployee(app, '87654321');
   });
 
   afterAll(async () => {

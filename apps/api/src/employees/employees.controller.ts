@@ -17,7 +17,7 @@ import {
 } from './employees.schemas';
 import { EmployeesService } from './employees.service';
 
-/** El acceso a `:companyId` lo valida CompanyScopeGuard (global). */
+/** El acceso a `:companyId` lo valida TenantScopeGuard (global). */
 @Roles('admin', 'analyst')
 @Controller('companies/:companyId/employees')
 export class EmployeesController {

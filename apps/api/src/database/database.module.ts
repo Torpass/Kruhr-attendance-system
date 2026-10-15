@@ -12,6 +12,9 @@ import { DB, PG_CLIENT } from './database.constants';
 import * as schema from './schema';
 
 export type Database = PostgresJsDatabase<typeof schema>;
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+/** La base o una transacción abierta: para escrituras que se componen dentro de otra transacción. */
+export type DbExecutor = Database | Transaction;
 
 @Global()
 @Module({

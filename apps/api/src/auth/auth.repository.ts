@@ -3,13 +3,8 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import type { SessionUser } from '../common/auth/session';
 import { DB } from '../database/database.constants';
 import type { Database } from '../database/database.module';
-import {
-  companies,
-  companyGroups,
-  employees,
-  userCompanies,
-  users,
-} from '../database/schema';
+import { insertGroupWithCompany } from '../companies/companies.repository';
+import { companies, employees, userCompanies, users } from '../database/schema';
 
 export interface EmployeeCredentials {
   id: string;
@@ -61,23 +56,15 @@ export class AuthRepository {
     passwordHash: string;
   }): Promise<string> {
     return this.db.transaction(async (tx) => {
-      const [group] = await tx
-        .insert(companyGroups)
-        .values({ name: input.companyName, slug: input.slug })
-        .returning({ id: companyGroups.id });
-      const [company] = await tx
-        .insert(companies)
-        .values({
-          groupId: group.id,
-          name: input.companyName,
-          slug: input.slug,
-        })
-        .returning({ id: companies.id });
+      const { groupId, companyId } = await insertGroupWithCompany(tx, {
+        name: input.companyName,
+        slug: input.slug,
+      });
       const [admin] = await tx
         .insert(users)
         .values({
           role: 'admin',
-          groupId: group.id,
+          groupId,
           name: input.adminName,
           email: input.email,
           passwordHash: input.passwordHash,
@@ -85,7 +72,7 @@ export class AuthRepository {
         .returning({ id: users.id });
       await tx
         .insert(userCompanies)
-        .values({ userId: admin.id, companyId: company.id, groupId: group.id });
+        .values({ userId: admin.id, companyId, groupId });
       return admin.id;
     });
   }

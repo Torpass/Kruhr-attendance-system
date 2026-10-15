@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { SessionToken, SessionUser } from '../common/auth/session';
 import { AuthRepository } from './auth.repository';
+import { rethrowSlugConflict } from '../companies/companies.repository';
 import { pgError, PG_UNIQUE_VIOLATION } from '../database/pg-error';
 import type {
   EmployeeLoginInput,
@@ -92,14 +93,13 @@ export class AuthService {
       });
     } catch (error) {
       const pg = pgError(error);
-      if (pg?.code === PG_UNIQUE_VIOLATION) {
-        throw new ConflictException(
-          pg.constraint_name === 'users_email_unique'
-            ? 'Ese correo ya está registrado'
-            : 'Ya existe una empresa con ese código. Elige otro.',
-        );
+      if (
+        pg?.code === PG_UNIQUE_VIOLATION &&
+        pg.constraint_name === 'users_email_unique'
+      ) {
+        throw new ConflictException('Ese correo ya está registrado');
       }
-      throw error;
+      rethrowSlugConflict(error);
     }
     return this.openSession({ sub: adminId, kind: 'staff' });
   }

@@ -22,7 +22,7 @@ import {
 } from './attendance.schemas';
 import { AttendanceService } from './attendance.service';
 
-/** RRHH: ver el día y corregir turnos. El acceso a `:companyId` lo valida CompanyScopeGuard. */
+/** RRHH: ver el día y corregir turnos. El acceso a `:companyId` lo valida TenantScopeGuard. */
 @Roles('admin', 'analyst')
 @Controller('companies/:companyId')
 export class CompanyAttendanceController {
