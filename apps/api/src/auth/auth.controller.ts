@@ -17,8 +17,10 @@ import { SESSION_COOKIE, type SessionUser } from '../common/auth/session';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
   employeeLoginSchema,
+  registerSchema,
   staffLoginSchema,
   type EmployeeLoginInput,
+  type RegisterInput,
   type StaffLoginInput,
 } from './auth.schemas';
 import { AuthService, type OpenedSession } from './auth.service';
@@ -68,6 +70,16 @@ export class AuthController {
     // Trabaja en varias empresas: el cliente muestra las opciones y repite con companyId.
     if ('companies' in result) return result;
     return this.startSession(res, result);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 3_600_000 } })
+  @Post('register')
+  async register(
+    @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.startSession(res, await this.auth.register(body));
   }
 
   @Public()

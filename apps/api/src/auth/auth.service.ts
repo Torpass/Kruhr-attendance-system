@@ -1,9 +1,18 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { SessionToken, SessionUser } from '../common/auth/session';
 import { AuthRepository } from './auth.repository';
-import type { EmployeeLoginInput, StaffLoginInput } from './auth.schemas';
-import { verifySecret } from './password';
+import { pgError, PG_UNIQUE_VIOLATION } from '../database/pg-error';
+import type {
+  EmployeeLoginInput,
+  RegisterInput,
+  StaffLoginInput,
+} from './auth.schemas';
+import { hashSecret, verifySecret } from './password';
 
 export interface OpenedSession {
   user: SessionUser;
@@ -62,6 +71,37 @@ export class AuthService {
       return { companies: matches.map((account) => account.company) };
     }
     throw new UnauthorizedException('Cédula o PIN incorrectos');
+  }
+
+  /** Una empresa se registra: grupo, primera empresa y su admin, con la sesión ya abierta. */
+  async register({
+    companyName,
+    companyCode,
+    name,
+    email,
+    password,
+  }: RegisterInput) {
+    let adminId: string;
+    try {
+      adminId = await this.repo.registerCompany({
+        companyName,
+        slug: companyCode,
+        adminName: name,
+        email,
+        passwordHash: await hashSecret(password),
+      });
+    } catch (error) {
+      const pg = pgError(error);
+      if (pg?.code === PG_UNIQUE_VIOLATION) {
+        throw new ConflictException(
+          pg.constraint_name === 'users_email_unique'
+            ? 'Ese correo ya está registrado'
+            : 'Ya existe una empresa con ese código. Elige otro.',
+        );
+      }
+      throw error;
+    }
+    return this.openSession({ sub: adminId, kind: 'staff' });
   }
 
   /** Carga el usuario vigente de un token. `undefined` si ya no existe o está inactivo. */

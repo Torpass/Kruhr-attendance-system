@@ -52,6 +52,7 @@ describe('Auth y health (e2e)', () => {
     findEmployeeCredentials: jest.fn(),
     findStaffSession: jest.fn((id: string) => sessions.get(id)),
     findEmployeeSession: jest.fn((id: string) => sessions.get(id)),
+    registerCompany: jest.fn(),
   };
 
   beforeAll(async () => {

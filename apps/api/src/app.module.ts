@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
+import { AttendanceModule } from './attendance/attendance.module';
+import { CompaniesModule } from './companies/companies.module';
+import { CompanyScopeGuard } from './companies/company-scope.guard';
+import { DatabaseErrorFilter } from './common/filters/database-error.filter';
+import { EmployeesModule } from './employees/employees.module';
+import { PeriodsModule } from './periods/periods.module';
 import { validateEnv, type Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -34,10 +41,18 @@ import { HealthModule } from './health/health.module';
     DatabaseModule,
     HealthModule,
     AuthModule,
+    CompaniesModule,
+    EmployeesModule,
+    AttendanceModule,
+    PeriodsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // En orden: límite de requests → sesión → rol → empresa.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: CompanyScopeGuard },
+    { provide: APP_FILTER, useClass: DatabaseErrorFilter },
   ],
 })
 export class AppModule {}

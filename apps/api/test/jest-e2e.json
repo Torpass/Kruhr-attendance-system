@@ -12,5 +12,9 @@
   },
   "setupFiles": [
     "<rootDir>/setup-env.ts"
-  ]
+  ],
+  "moduleNameMapper": {
+    "^@marcaje/core$": "<rootDir>/../../../packages/core/src"
+  },
+  "globalSetup": "<rootDir>/global-setup.ts"
 }
