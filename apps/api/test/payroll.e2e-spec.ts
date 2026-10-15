@@ -122,6 +122,18 @@ describe('Nómina (integración)', () => {
       await agents.adminB.get(group('structures')).expect(404);
     });
 
+    it('un grupo nuevo instala la estructura de referencia una sola vez', async () => {
+      const url = `/api/groups/${ids.groupB}/structures/sample`;
+      const res = await agents.adminB.post(url).expect(201);
+      expect(res.body.structure).toMatchObject({ code: 'QUINCENAL_VE' });
+      expect(res.body.structure.rules).toHaveLength(
+        SAMPLE_BIWEEKLY_RULES.length,
+      );
+      await agents.adminB.post(url).expect(409);
+      // El grupo A ya tenía sus parámetros: no se pisan.
+      await agents.analystA.post(group('structures/sample')).expect(409);
+    });
+
     it('un parámetro nuevo rige desde su fecha', async () => {
       const params = await agents.adminA.get(group('parameters')).expect(200);
       const minWage = params.body.parameters.find(

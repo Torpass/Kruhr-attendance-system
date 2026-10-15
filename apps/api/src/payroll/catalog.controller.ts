@@ -35,6 +35,12 @@ export class CatalogController {
     return { structures: await this.catalog.listStructures(groupId) };
   }
 
+  /** Instala la estructura de referencia (Quincenal VE) con sus parámetros y entradas. */
+  @Post('structures/sample')
+  async installSample(@Param('groupId') groupId: string) {
+    return { structure: await this.catalog.installSample(groupId) };
+  }
+
   @Get('structures/:structureId')
   async structure(
     @Param('groupId') groupId: string,
