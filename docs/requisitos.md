@@ -17,7 +17,7 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 | Concepto de Odoo | En Marcaje |
 | --- | --- |
 | La estructura (`hr.payroll.structure`) agrupa reglas (`hr.salary.rule`) ordenadas por `sequence` | Igual |
-| Cada regla tiene una categoría (`hr.salary.rule.category`). Las categorías forman un árbol y su total sube al padre | Igual |
+| Cada regla tiene una categoría (`hr.salary.rule.category`). Las categorías forman un árbol y su total sube al padre | **Sin categorías.** Una regla suma otras reglas por su código, y el recibo separa asignaciones de deducciones por el signo |
 | El total de una línea es `monto × cantidad × tasa / 100` | Igual |
 | Una regla lee el resultado de una regla anterior por su `code` | Igual |
 | Los "worked days" agrupan las horas por tipo de entrada de trabajo | Cuatro códigos fijos derivados de los turnos (§4.2) |
@@ -72,7 +72,7 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 **Reglas de acceso**
 - **Jerarquía fija de dos niveles.** Un grupo (la empresa padre) tiene una o más empresas (sub-empresas).
 - **Filtro por empresa.** Toda consulta de datos lleva un `company_id`, y ese id debe estar en las `companyIds` de la sesión (el superadmin las ve todas). Si el recurso es de otra empresa, la API responde **404** y no 403.
-- **Catálogo de nómina por grupo.** Categorías, estructuras, reglas, parámetros y tipos de entrada son del **grupo**: los comparten sus empresas y los edita cualquier admin o analista del grupo.
+- **Catálogo de nómina por grupo.** Estructuras, reglas, parámetros y tipos de entrada son del **grupo**: los comparten sus empresas y los edita cualquier admin o analista del grupo.
 - **Sesión siempre vigente.** La sesión se resuelve contra la base en cada request. Si se desactiva a una persona o a una empresa, o se le quita una empresa a alguien, el cambio aplica de inmediato.
 
 ---
@@ -98,7 +98,7 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 
 | Ruta | Rol | Casos de uso |
 | --- | --- | --- |
-| `/rrhh/nomina/estructuras` | admin, analyst | Estructuras y sus reglas ordenadas; categorías |
+| `/rrhh/nomina/estructuras` | admin, analyst | Estructuras y sus reglas ordenadas |
 | `/rrhh/nomina/parametros` | admin, analyst | Salario mínimo y topes, con valores por fecha |
 | `/rrhh/colaboradores/:id/contrato` | admin, analyst | Contratos: salario, estructura y vigencia |
 | `/rrhh/nomina/lotes` | admin, analyst | Crear un lote (empresa + estructura + período) → generar los recibos (las horas salen del motor de asistencia) → cargar entradas → calcular → validar → pagar |
@@ -139,12 +139,13 @@ El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore),
 | --- | --- |
 | `condition` | `always` · `nonzero_quantity` (se omite si la cantidad es 0) |
 | `quantity_source` | `one` · `worked_hours` + código (§4.2) · `input` + código · `period_days` · `mondays` |
-| `amount_type` | `fixed` (`amount_fix`) · `monthly_wage` · `weekly_wage` (mensual × 12 / 52) · `daily_wage` (mensual / 30) · `hourly_wage` (diario / 8) · `percentage_of` (suma de `base_codes`: reglas anteriores o categorías) |
+| `amount_type` | `fixed` (`amount_fix`) · `monthly_wage` · `weekly_wage` (mensual × 12 / 52) · `daily_wage` (mensual / 30) · `hourly_wage` (diario / 8) · `percentage_of` (suma de los totales de las reglas anteriores listadas en `base_codes`) |
 | `amount_cap_param` | Opcional: el monto no puede pasar del valor vigente de ese parámetro |
 | `rate` | Porcentaje con signo: 150 para horas extra, −4 para el IVSS |
 
 - **Total de la línea:** `round2(monto × cantidad × rate / 100)`.
-- **Acumulación:** el total se suma en su código y en su categoría, y de ahí sube a las categorías padre.
+- **Acumulación:** el total queda disponible por su código para las reglas siguientes. No hay categorías.
+- **Recibo:** las líneas positivas son asignaciones y las negativas, deducciones. Las reglas de totales (GROSS, NET) y los aportes patronales llevan `appears_on_payslip = false`.
 
 **Estructura de ejemplo "Quincenal VE" para el seed:**
 
@@ -154,11 +155,11 @@ El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore),
 | HED | `hourly_wage` × `OT_DAY` × 150 % |
 | HEN | `hourly_wage` × `OT_NIGHT` × 195 % |
 | BN | `hourly_wage` × `NIGHT` × 30 % |
-| GROSS | `percentage_of` [BASIC, ALW] × 100 % |
+| GROSS | `percentage_of` [BASIC, HED, HEN, BN] × 100 % |
 | IVSS | `weekly_wage` (tope `TOPE_IVSS`) × `mondays` × −4 % |
 | RPE | `weekly_wage` (tope `TOPE_IVSS`) × `mondays` × −0,5 % |
 | FAOV | `percentage_of` [GROSS] × −1 % |
-| NET | `percentage_of` [BASIC, ALW, DED] × 100 % |
+| NET | `percentage_of` [GROSS, IVSS, RPE, FAOV] × 100 % |
 
 ---
 
@@ -202,9 +203,8 @@ shift_corrections id, shift_id, company_id, corrected_by → users, reason, befo
 ```text
 payroll_parameters        id, group_id, code, name                     UNIQUE (group_id, code)
 payroll_parameter_values  parameter_id, date_from, value               PK (parameter_id, date_from)
-salary_rule_categories    id, group_id, code, name, parent_id?          UNIQUE (group_id, code)
 salary_structures         id, group_id, code, name, schedule_pay (weekly|semi_monthly|monthly), active
-salary_rules              id, structure_id, code, name, sequence, category_id, appears_on_payslip,
+salary_rules              id, structure_id, code, name, sequence, appears_on_payslip,
                           condition, quantity_source, quantity_code?, amount_type, amount_fix?,
                           base_codes text[]?, amount_cap_param?, rate, active   UNIQUE (structure_id, code)
 input_types               id, group_id, code, name                     UNIQUE (group_id, code)
@@ -215,7 +215,7 @@ payslip_runs              id, company_id, structure_id, date_from, date_to,
 payslips                  id, run_id, employee_id, contract_id, state, gross, net, computed_at
 payslip_worked_hours      payslip_id, code, minutes                   ← copia de las horas al momento del cálculo
 payslip_inputs            payslip_id, input_type_id, amount
-payslip_lines             payslip_id, rule_id, code, name, category_code, sequence, quantity, amount, rate, total, appears_on_payslip
+payslip_lines             payslip_id, rule_id, code, name, sequence, quantity, amount, rate, total, appears_on_payslip
 ```
 
 Las líneas copian el código y el nombre de la regla. Así el recibo histórico no cambia si después se edita la regla, y no hace falta el versionado de reglas que tiene Binaural.
