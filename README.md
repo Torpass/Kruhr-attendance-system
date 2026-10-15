@@ -26,6 +26,10 @@ Ya está listo:
 - **Login real** para gestión (correo + contraseña) y para colaboradores (cédula + PIN; si trabajan en varias empresas, eligen en cuál marcar), con Argon2id y sesión JWT en una cookie `httpOnly`.
 - **API de asistencia:** marcar entrada y salida, ver el día (dentro / sin marcar / sin salida), colaboradores, correcciones con motivo e historial, cálculo del período con alertas y exportación a CSV. Toda ruta de empresa valida rol y empresa (404 si no es tuya).
 - **Motor de cálculo** en `packages/core`, con los dos ejemplos del enunciado entre sus tests.
+- **Pantallas:**
+  - colaborador (móvil): `/marcar` y `/marcar/historial`;
+  - RRHH con selector de empresa: `/rrhh/<empresa>/hoy`, `colaboradores` (alta, ficha, corregir con motivo e historial) y `periodos` (semana, quincenas o rango, alertas y CSV);
+  - `/registro` de empresas.
 - **`/api/health`**, que hace `select 1` contra la base.
 
 Los requerimientos, los roles, las vistas y el modelo de datos completo (incluida la nómina) están en [`docs/requisitos.md`](docs/requisitos.md).

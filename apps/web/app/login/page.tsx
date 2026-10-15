@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/ui/logo";
-import { api, ApiError, type SessionUser } from "@/lib/api";
+import { api, errorMessage, type SessionUser } from "@/lib/api";
 
 type Mode = "employee" | "staff";
 type Company = { id: string; name: string };
@@ -15,13 +16,6 @@ const TABS: { mode: Mode; label: string }[] = [
   { mode: "employee", label: "Colaborador" },
   { mode: "staff", label: "Gestión" },
 ];
-
-function errorMessage(err: unknown) {
-  if (err instanceof ApiError && err.status === 429) {
-    return "Demasiados intentos. Espera un minuto.";
-  }
-  return err instanceof ApiError ? err.message : "No pudimos conectar con el servidor.";
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -207,6 +201,12 @@ export default function LoginPage() {
                 {pending ? "Entrando…" : "Entrar"}
               </Button>
             </form>
+            <p className="mt-6 text-center text-sm text-gris">
+              ¿Tu empresa aún no usa Marcaje?{" "}
+              <Link href="/registro" className="font-semibold text-kru-700 hover:text-kru-800">
+                Regístrala
+              </Link>
+            </p>
           </>
         )}
       </div>

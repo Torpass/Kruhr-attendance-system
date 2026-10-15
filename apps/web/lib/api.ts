@@ -26,9 +26,20 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Cuerpo del error (p. ej. `errors` por campo cuando la validación falla). */
+    readonly body: unknown = null,
   ) {
     super(message);
   }
+}
+
+/** Mensaje legible de un error de la API, con el primer error por campo si lo hay. */
+export function errorMessage(err: unknown): string {
+  if (!(err instanceof ApiError)) return "No pudimos conectar con el servidor.";
+  if (err.status === 429) return "Demasiados intentos. Espera un minuto.";
+  const fields = (err.body as { errors?: Record<string, string[] | undefined> } | null)?.errors;
+  const first = fields && Object.values(fields).flat().find(Boolean);
+  return first ?? err.message;
 }
 
 /** Llama a la API por el rewrite /api/* (mismo origen, cookie incluida). */
@@ -46,7 +57,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const message = Array.isArray(body?.message)
       ? body.message.join(", ")
       : (body?.message ?? response.statusText);
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, body);
   }
 
   return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);

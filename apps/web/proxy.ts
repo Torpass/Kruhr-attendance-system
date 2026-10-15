@@ -10,15 +10,16 @@ export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has(SESSION_COOKIE);
   const { pathname } = request.nextUrl;
 
-  if (!hasSession && pathname.startsWith("/panel")) {
+  const isPrivate = ["/panel", "/marcar", "/rrhh"].some((prefix) => pathname.startsWith(prefix));
+  if (!hasSession && isPrivate) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  if (hasSession && pathname === "/login") {
+  if (hasSession && (pathname === "/login" || pathname === "/registro")) {
     return NextResponse.redirect(new URL("/panel", request.url));
   }
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/login", "/panel/:path*"],
+  matcher: ["/login", "/registro", "/panel/:path*", "/marcar/:path*", "/rrhh/:path*"],
 };
