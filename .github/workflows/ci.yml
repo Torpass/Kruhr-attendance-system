@@ -16,6 +16,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Las apps importan los tipos y el código compilado de packages/core.
+      - run: pnpm --filter @marcaje/core build
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm --filter @marcaje/api test:e2e
