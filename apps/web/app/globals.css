@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Design system Kru — ver docs/design-system.md */
+@theme {
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+
+  --color-kru-50: #f5f3ff;
+  --color-kru-100: #ede9fe;
+  --color-kru-200: #ddd6fe;
+  --color-kru-300: #c4b5fd;
+  --color-kru-400: #a78bfa;
+  --color-kru-500: #8b5cf6;
+  --color-kru-600: #7c3aed;
+  --color-kru-700: #6d28d9;
+  --color-kru-800: #5b21b6;
+  --color-kru-900: #4c1d95;
+
+  --color-grafito: #111827;
+  --color-grafito-medio: #1f2937;
+  --color-grafito-linea: #374151;
+  --color-grafito-sobre: #d1d5db;
+  --color-gris: #4b5563;
+  --color-gris-claro: #9ca3af;
+  --color-borde: #e5e7eb;
+  --color-borde-fuerte: #d1d5db;
+  --color-hueso: #f3f4f6;
+
+  --color-exito: #16a34a;
+  --color-exito-fondo: #dcfce7;
+  --color-exito-texto: #15803d;
+  --color-alerta: #d97706;
+  --color-alerta-fondo: #fef3c7;
+  --color-alerta-texto: #b45309;
+  --color-error: #dc2626;
+  --color-error-fondo: #fee2e2;
+  --color-error-texto: #b91c1c;
+
+  --shadow-kru: 0 1px 2px 0 rgb(17 24 39 / 0.04), 0 4px 6px -4px rgb(221 214 254 / 0.9);
+  --shadow-kru-md: 0 4px 6px -4px rgb(196 181 253 / 0.55), 0 10px 15px -3px rgb(221 214 254 / 0.7);
+  --shadow-kru-lg: 0 10px 15px -3px rgb(196 181 253 / 0.45), 0 25px 50px -12px rgb(167 139 250 / 0.28);
+}
+
+@utility rotulo {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+html {
+  caret-color: var(--color-kru-600);
+}
+
+body {
+  background: var(--color-hueso);
+  color: var(--color-grafito);
+}

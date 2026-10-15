@@ -1,0 +1,29 @@
+# Blueprint de Render: API NestJS en Docker (plan gratuito).
+services:
+  - type: web
+    name: marcaje-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - apps/api/**
+        - pnpm-lock.yaml
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Cliente → Vercel (rewrite) → balanceador de Render → API
+      - key: TRUST_PROXY_HOPS
+        value: "2"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false # Supabase → Connect → Transaction pooler (6543) + ?sslmode=require
+      - key: DEMO_EMAIL
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
