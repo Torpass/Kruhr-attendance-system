@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -12,6 +12,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Marcaje · Kru",
   description: "Registro de entrada y salida de colaboradores.",
+  appleWebApp: { capable: true, title: "Marcaje", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
