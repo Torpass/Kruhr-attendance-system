@@ -126,22 +126,28 @@ Decisiones:
 
 ## 5. API
 
+Todas las rutas van bajo `/api`. Las de `/companies/:companyId/*` pasan por `CompanyScopeGuard`: la empresa debe estar entre las de la sesión, o la respuesta es 404.
+
 ```text
-POST /auth/register-company     crea grupo + empresa + admin
+POST /auth/register             público: crea grupo + empresa + admin y abre la sesión
 POST /auth/staff/login          superadmin, admin, analista: email + password
 POST /auth/employee/login       colaborador: cédula + PIN (+ companyId si trabaja en varias empresas)
 POST /auth/logout   GET /auth/me
 
-POST /me/punch                  abre o cierra el turno (hora del servidor)
-GET  /me/today                  estado + turnos de hoy
+POST /me/clock-in               abre un turno (hora del servidor); 409 si ya hay uno abierto
+POST /me/clock-out              cierra el turno abierto; 409 si no hay o si es un olvido de 16 h o más
+GET  /me/today                  turno abierto + turnos de hoy
+GET  /me/shifts?from&to         historial (con minutos clasificados)
 
-GET    /admin/employees         POST /admin/employees    PATCH /admin/employees/:id
-GET    /admin/today             { dentro[], sinMarcar[], sinSalida[] }
-GET    /admin/shifts?from&to&userId
-PATCH  /admin/shifts/:id        { clockIn?, clockOut?, reason }   ← reason obligatorio
-POST   /admin/shifts            turno manual (olvido total), también con reason
-GET    /admin/periods?from&to   cálculo por colaborador + alertas
-GET    /admin/periods/export.csv?from&to
+GET  /companies                                  empresas que la sesión puede gestionar
+GET  /companies/:companyId/employees             POST (admin, analista)   PATCH /:employeeId (admin)
+GET  /companies/:companyId/today                 { counts, inside[], missingClockOut[], notClockedIn[], finished[] }
+GET  /companies/:companyId/shifts?from&to&employeeId
+POST /companies/:companyId/shifts                turno manual { employeeId, clockIn, clockOut, reason }
+PATCH /companies/:companyId/shifts/:shiftId      { clockIn?, clockOut?, reason }   ← reason obligatorio
+GET  /companies/:companyId/shifts/:shiftId/corrections
+GET  /companies/:companyId/periods?kind=week|first_half|second_half&date   (o ?from&to)
+GET  /companies/:companyId/periods/export.csv    mismos parámetros
 ```
 
 ## 6. Motor de cálculo (`packages/core`)
@@ -181,8 +187,9 @@ Las vistas por rol y por fase están en [`requisitos.md` §3](requisitos.md#3-ca
 
 1. La ventana nocturna es `[19:00, 05:00)`: incluye las 19:00 y excluye las 05:00.
 2. Las quincenas van del 1 al 15 y del 16 a fin de mes. La semana va de lunes a domingo.
-3. **Ver el día:** "Dentro" son los turnos abiertos que empezaron hoy. "Sin salida" son los turnos abiertos de días anteriores (olvidos) y los que pasan de un umbral (por ejemplo 16 h). "No ha marcado" son los colaboradores activos sin turno con fecha de hoy.
-4. Un turno abierto no se calcula hasta que RRHH lo cierra con una corrección.
+3. **Ver el día:** "Dentro" son los turnos abiertos de menos de 16 h (incluye un turno nocturno que empezó ayer). "Sin salida" son los turnos abiertos de 16 h o más: el colaborador no puede cerrarlos marcando, los corrige RRHH. "No ha marcado" son los colaboradores activos sin turno abierto ni turno que empiece hoy.
+4. Un turno abierto no se calcula hasta que se cierra. En el período se cuenta como pendiente.
+6. **El período incluye** a todos los colaboradores activos (aunque tengan 0 h) y a los inactivos que trabajaron en él, para que desactivar a alguien a mitad de quincena no le quite horas.
 5. Los minutos se truncan al minuto en el que ocurre el marcaje (los segundos se ignoran) para evitar diferencias de redondeo.
 
 ## 9. Fases de trabajo

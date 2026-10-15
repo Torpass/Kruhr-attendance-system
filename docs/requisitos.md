@@ -117,10 +117,11 @@ El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore),
 
 | Función | Qué hace |
 | --- | --- |
-| `calcularTurno` | Devuelve los minutos `ordinarios`, `nocturnaOrdinaria`, `extraDiurna` y `extraNocturna` |
-| `calcularPeriodo` | Suma los minutos y redondea a 2 decimales solo al final |
-| `alertasSemanales` | Marca las semanas con más de 600 min de extra |
-| `aCSV` | Arma el CSV con las columnas del enunciado |
+| `computeShift` | Devuelve los minutos `worked`, `nightOrdinary`, `overtimeDay` y `overtimeNight` de un turno |
+| `summarizePeriod` | Suma los minutos de un colaborador, redondea a 2 decimales solo al final y marca las semanas con más de 600 min de extra |
+| `periodFor` / `alertWindow` | Semana o quincena que contiene una fecha / semanas completas que hay que cargar para las alertas |
+| `periodToCsv` | Arma el CSV con las columnas del enunciado |
+| `isStaleOpenShift` | Un turno abierto de 16 h o más es un olvido ("sin salida") |
 
 ### 4.2 Horas trabajadas que ve la nómina
 

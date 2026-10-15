@@ -24,6 +24,8 @@ Navegador ──► Vercel · Next.js 16 (apps/web)
 Ya está listo:
 - **Esquema de la fase A** (empresas, usuarios, colaboradores, turnos y correcciones), con migraciones de Drizzle y seed.
 - **Login real** para gestión (correo + contraseña) y para colaboradores (cédula + PIN; si trabajan en varias empresas, eligen en cuál marcar), con Argon2id y sesión JWT en una cookie `httpOnly`.
+- **API de asistencia:** marcar entrada y salida, ver el día (dentro / sin marcar / sin salida), colaboradores, correcciones con motivo e historial, cálculo del período con alertas y exportación a CSV. Toda ruta de empresa valida rol y empresa (404 si no es tuya).
+- **Motor de cálculo** en `packages/core`, con los dos ejemplos del enunciado entre sus tests.
 - **`/api/health`**, que hace `select 1` contra la base.
 
 Los requerimientos, los roles, las vistas y el modelo de datos completo (incluida la nómina) están en [`docs/requisitos.md`](docs/requisitos.md).
@@ -81,8 +83,10 @@ pnpm test
 ```
 
 ```bash
-pnpm --filter @marcaje/api test:e2e
+pnpm db:up && pnpm --filter @marcaje/api test:e2e
 ```
+
+Los e2e de integración usan la base `marcaje_test` del Postgres de docker compose; la crean y la migran solos. Nunca tocan la base de desarrollo ni Supabase. Para usar otra base, define `TEST_DATABASE_URL`; su nombre debe contener `test`.
 
 ## Despliegue
 
