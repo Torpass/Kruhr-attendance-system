@@ -7,9 +7,13 @@ WORKDIR /repo
 FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter @marcaje/api
+COPY packages/core/package.json packages/core/
+# `...` incluye las dependencias de workspace (packages/core).
+RUN pnpm install --frozen-lockfile --filter @marcaje/api...
+COPY packages/core packages/core
 COPY apps/api apps/api
-RUN pnpm --filter @marcaje/api build \
+RUN pnpm --filter @marcaje/core build \
+ && pnpm --filter @marcaje/api build \
  && pnpm --filter @marcaje/api deploy --prod /out
 
 FROM node:24-alpine AS runtime
