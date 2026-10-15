@@ -4,7 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
-import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { validateEnv, type Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -16,7 +16,11 @@ import { HealthModule } from './health/health.module';
       cache: true,
       validate: validateEnv,
     }),
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: 120 },
+      // Sin límite efectivo salvo donde una ruta lo sobreescribe con @Throttle (login por cuenta).
+      { name: 'account', ttl: 60_000, limit: Number.MAX_SAFE_INTEGER },
+    ]),
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],

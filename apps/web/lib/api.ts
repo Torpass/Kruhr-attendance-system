@@ -1,11 +1,25 @@
 export type Role = "superadmin" | "admin" | "analyst" | "employee";
 
-export interface SessionUser {
-  sub: string;
-  email: string;
-  name: string;
-  role: Role;
-}
+/** Espejo de `SessionUser` de la API (apps/api/src/common/auth/session.ts). */
+export type SessionUser =
+  | {
+      kind: "staff";
+      id: string;
+      role: Exclude<Role, "employee">;
+      name: string;
+      email: string;
+      groupId: string | null;
+      companyIds: string[];
+    }
+  | {
+      kind: "employee";
+      id: string;
+      role: "employee";
+      name: string;
+      cedula: string;
+      groupId: string;
+      companyIds: string[];
+    };
 
 export class ApiError extends Error {
   constructor(

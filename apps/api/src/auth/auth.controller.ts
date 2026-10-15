@@ -8,15 +8,43 @@ import {
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, type ThrottlerGetTrackerFunction } from '@nestjs/throttler';
 import type { CookieOptions, Response } from 'express';
 import type { Env } from '../config/env';
 import { CurrentUser } from '../common/auth/current-user.decorator';
 import { Public } from '../common/auth/public.decorator';
 import { SESSION_COOKIE, type SessionUser } from '../common/auth/session';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { loginSchema, type LoginInput } from './auth.schemas';
+import {
+  employeeLoginSchema,
+  staffLoginSchema,
+  type EmployeeLoginInput,
+  type StaffLoginInput,
+} from './auth.schemas';
 import { AuthService } from './auth.service';
+
+// Límite por cuenta además del límite por IP: frena la fuerza bruta de un PIN desde muchas IPs.
+// El de IP es holgado porque un turno completo puede entrar a la vez desde el Wi-Fi de la empresa.
+const accountTracker =
+  (...fields: string[]): ThrottlerGetTrackerFunction =>
+  (req) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    return fields
+      .map((field) => {
+        const value = body[field];
+        return typeof value === 'string' ? value.trim().toLowerCase() : '';
+      })
+      .join(':');
+  };
+const loginThrottle = (...accountFields: string[]) =>
+  Throttle({
+    default: { limit: 30, ttl: 60_000 },
+    account: {
+      limit: 5,
+      ttl: 60_000,
+      getTracker: accountTracker(...accountFields),
+    },
+  });
 
 @Controller('auth')
 export class AuthController {
@@ -25,29 +53,26 @@ export class AuthController {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
-  private cookieOptions(): CookieOptions {
-    return {
-      httpOnly: true,
-      secure: this.config.get('NODE_ENV', { infer: true }) === 'production',
-      sameSite: 'lax',
-      path: '/',
-    };
+  @Public()
+  @loginThrottle('email')
+  @Post('staff/login')
+  @HttpCode(HttpStatus.OK)
+  async loginStaff(
+    @Body(new ZodValidationPipe(staffLoginSchema)) body: StaffLoginInput,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.startSession(res, await this.auth.loginStaff(body));
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @Post('login')
+  @loginThrottle('company', 'cedula')
+  @Post('employee/login')
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
+  async loginEmployee(
+    @Body(new ZodValidationPipe(employeeLoginSchema)) body: EmployeeLoginInput,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { user, token } = await this.auth.login(body);
-    res.cookie(SESSION_COOKIE, token, {
-      ...this.cookieOptions(),
-      maxAge: this.config.get('JWT_EXPIRES_IN_SECONDS', { infer: true }) * 1000,
-    });
-    return { user };
+    return this.startSession(res, await this.auth.loginEmployee(body));
   }
 
   @Public()
@@ -59,13 +84,26 @@ export class AuthController {
 
   @Get('me')
   me(@CurrentUser() user: SessionUser) {
+    return { user };
+  }
+
+  private startSession(
+    res: Response,
+    { user, token }: { user: SessionUser; token: string },
+  ) {
+    res.cookie(SESSION_COOKIE, token, {
+      ...this.cookieOptions(),
+      maxAge: this.config.get('JWT_EXPIRES_IN_SECONDS', { infer: true }) * 1000,
+    });
+    return { user };
+  }
+
+  private cookieOptions(): CookieOptions {
     return {
-      user: {
-        sub: user.sub,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
+      httpOnly: true,
+      secure: this.config.get('NODE_ENV', { infer: true }) === 'production',
+      sameSite: 'lax',
+      path: '/',
     };
   }
 }

@@ -9,8 +9,9 @@ import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
 import type { Env } from '../config/env';
 import { DB, PG_CLIENT } from './database.constants';
+import * as schema from './schema';
 
-export type Database = PostgresJsDatabase;
+export type Database = PostgresJsDatabase<typeof schema>;
 
 @Global()
 @Module({
@@ -29,7 +30,8 @@ export type Database = PostgresJsDatabase;
     {
       provide: DB,
       inject: [PG_CLIENT],
-      useFactory: (client: Sql): Database => drizzle(client),
+      useFactory: (client: Sql): Database =>
+        drizzle(client, { schema, casing: 'snake_case' }),
     },
   ],
   exports: [DB],
