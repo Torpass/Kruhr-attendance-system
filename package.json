@@ -8,6 +8,8 @@
   "scripts": {
     "db:up": "docker compose up -d --wait db",
     "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @marcaje/api db:migrate",
+    "db:seed": "pnpm --filter @marcaje/api db:seed",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",

@@ -21,7 +21,12 @@ Navegador ──► Vercel · Next.js 16 (apps/web)
 
 ## Estado actual
 
-Esqueleto funcional: login provisional contra un usuario definido por variables de entorno (`DEMO_EMAIL` / `DEMO_PASSWORD`), sesión JWT en cookie `httpOnly`, `/api/health` con `select 1` a la base y un panel que muestra la sesión y el estado de la API y la base. Todavía no hay tablas: se agregan al definir los casos de uso.
+Ya está listo:
+- **Esquema de la fase A** (empresas, usuarios, colaboradores, turnos y correcciones), con migraciones de Drizzle y seed.
+- **Login real** para gestión (correo + contraseña) y para colaboradores (empresa + cédula + PIN), con Argon2id y sesión JWT en una cookie `httpOnly`.
+- **`/api/health`**, que hace `select 1` contra la base.
+
+Los requerimientos, los roles, las vistas y el modelo de datos completo (incluida la nómina) están en [`docs/requisitos.md`](docs/requisitos.md).
 
 ## Correr en local
 
@@ -43,11 +48,29 @@ pnpm db:up
 cp apps/api/.env.example apps/api/.env && cp apps/web/.env.example apps/web/.env.local
 ```
 
-Edita `apps/api/.env` (al menos `JWT_SECRET` y `DEMO_PASSWORD`) y luego:
+Edita `apps/api/.env`: al menos `JWT_SECRET` y las variables `SEED_*`, que son las claves de los usuarios de demo. Después crea las tablas y carga los datos de demo:
+
+```bash
+pnpm db:migrate && pnpm db:seed
+```
 
 ```bash
 pnpm dev
 ```
+
+El seed es idempotente: si lo vuelves a correr, actualiza las claves. Crea estos usuarios:
+
+| Rol | Usuario | Clave |
+| --- | --- | --- |
+| superadmin | `SEED_SUPERADMIN_EMAIL` | `SEED_SUPERADMIN_PASSWORD` |
+| admin de las empresas A Norte y A Sur | `admin@empresa-a.test` | `SEED_DEMO_PASSWORD` |
+| analista de A Norte | `analista@empresa-a.test` | `SEED_DEMO_PASSWORD` |
+| colaboradora de A Norte | empresa `empresa-a-norte` + cédula `12345678` | PIN `SEED_DEMO_PIN` |
+| admin de la empresa B | `admin@empresa-b.test` | `SEED_DEMO_PASSWORD` |
+
+Si `DATABASE_URL` apunta a Supabase, `pnpm db:migrate` y `pnpm db:seed` actúan sobre producción. Para usar la base local, anteponles `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/marcaje`: la variable de entorno tiene prioridad sobre `.env`.
+
+Para cambiar el esquema, edita `apps/api/src/database/schema.ts` y genera la migración con `pnpm --filter @marcaje/api db:generate`.
 
 - Web: http://localhost:3000 · API: http://localhost:4000/api/health
 
@@ -73,7 +96,7 @@ pnpm --filter @marcaje/api test:e2e
      alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
      ```
    - Connect → **Transaction pooler** (puerto **6543**): copiar la URL, añadir `?sslmode=require` y usarla como `DATABASE_URL`. Si la contraseña tiene caracteres especiales, hay que codificarlos (`@` → `%40`).
-2. **Render** → New → Blueprint → este repo. Usa [`render.yaml`](render.yaml): completar `DATABASE_URL`, `DEMO_EMAIL` y `DEMO_PASSWORD`. `JWT_SECRET` se genera solo.
+2. **Render** → New → Blueprint → este repo. Usa [`render.yaml`](render.yaml): completar `DATABASE_URL`. `JWT_SECRET` se genera solo. Las migraciones y el seed se corren desde una máquina local contra la `DATABASE_URL` de Supabase (`pnpm db:migrate`, `pnpm db:seed`), antes de desplegar el código que las necesita.
 3. **Vercel** → importar el repo con **Root Directory `apps/web`**. Variables de entorno:
    - `API_URL` = URL pública de Render (sin `/api`).
    - `ENABLE_EXPERIMENTAL_COREPACK=1`, para que use el pnpm fijado en `packageManager`.

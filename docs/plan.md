@@ -105,48 +105,32 @@ docs/
 
 ## 2.1 Roles
 
-| Rol | Alcance | Puede |
-| --- | --- | --- |
-| `superadmin` | Todas las empresas | Registrar empresas y registrar usuarios de cualquier rol en cualquier empresa |
-| `admin` | Su empresa | Todo lo del analista, además de gestionar empleados y analistas, y ver dashboards y KPIs más profundos |
-| `analyst` | Su empresa | Pagar nómina, corregir períodos, realizar cálculos, crear reglas salariales y estructuras de pago, registrar **solo** empleados, ver cuántas personas están dentro ahora (turno sin cerrar) y otros KPIs |
-| `employee` | Él mismo | Marcar, ver su historial de marcajes y sus recibos de pago |
-
-Los roles son jerárquicos de `admin` hacia abajo: `admin` incluye todo lo de `analyst`. `superadmin` es el único rol sin `company_id`.
+Cuatro roles: `superadmin`, `admin`, `analyst` y `employee`. Las empresas tienen dos niveles: un grupo (la empresa padre) y sus sub-empresas. Admins y analistas se asignan a varias empresas de un mismo grupo; cada colaborador pertenece a una sola empresa. Los permisos, los casos de uso y las vistas de cada rol están en [`requisitos.md` §2–3](requisitos.md#2-roles).
 
 ## 3. Modelo de datos
 
-```text
-companies   id, name, rif?, created_at
-users       id, company_id, role('admin'|'employee'), name, cedula, email?, password_hash, active
-            UNIQUE(company_id, cedula)
-shifts      id, company_id, user_id, clock_in timestamptz, clock_out timestamptz NULL,
-            source('app'|'correction'), created_at
-            UNIQUE parcial (user_id) WHERE clock_out IS NULL   → un solo turno abierto
-            CHECK (clock_out IS NULL OR clock_out > clock_in)
-shift_corrections
-            id, shift_id, company_id, corrected_by, reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5),
-            before jsonb, after jsonb, created_at
-```
+El esquema completo, con la fase A ya migrada y la fase B de nómina diseñada, está en [`requisitos.md` §5](requisitos.md#5-modelo-de-datos). Las tablas de la fase A son `company_groups`, `companies`, `users`, `user_companies`, `employees`, `shifts` y `shift_corrections`.
 
 Decisiones:
-- **Modelamos turnos, no marcas sueltas.** "Marcar" abre o cierra un turno, lo que evita marcas huérfanas o dos entradas seguidas. El índice único parcial lo garantiza en la base de datos, incluso con dos taps simultáneos.
+- **Modelamos turnos, no marcas sueltas.** "Marcar" abre o cierra un turno, lo que evita marcas huérfanas o dos entradas seguidas. La base garantiza un solo turno abierto (índice único parcial, incluso con dos taps simultáneos) y que no haya turnos solapados (`EXCLUDE USING gist`).
 - **Las correcciones no sobrescriben sin dejar rastro.** El turno queda con el valor corregido y `shift_corrections` guarda el antes, el después, quién lo cambió y el motivo. Así se audita sin complicar el cálculo.
 - **Las horas se guardan en UTC** (`timestamptz`) y se convierten a `America/Caracas` solo para clasificarlas y mostrarlas. La hora del marcaje la pone el servidor y **nunca el cliente**.
+- **Las FKs compuestas** impiden, desde la propia base, que un turno quede en una empresa distinta a la de su colaborador o que un admin tenga asignada una empresa de otro grupo.
 
 ## 4. Autorización (multiempresa)
 
-- `JwtAuthGuard` es global: toda ruta exige sesión salvo las marcadas `@Public()` (registro y login). La sesión lleva `{userId, companyId, role}`.
-- Los repositorios **exigen `companyId`** como parámetro; no existe una consulta sin él. Si alguien pide un recurso de otra empresa, la API responde **404, no 403**, para no revelar que existe.
-- `RolesGuard` + `@Roles()`. Rol `employee`: solo `POST /me/punch` y `GET /me/*`. Rol `admin`: todo `/admin/*` de su empresa.
+- `JwtAuthGuard` es global: toda ruta exige sesión salvo las marcadas `@Public()` (registro y login). El JWT solo lleva `{sub, kind}`. El guard carga en cada request `{id, role, groupId, companyIds}` desde la base, así que desactivar a alguien o cambiar sus empresas aplica de inmediato.
+- Los repositorios **exigen `companyId`** como parámetro, y ese id debe estar en las `companyIds` de la sesión (el superadmin accede a todas). No existe una consulta sin él. Si alguien pide un recurso de otra empresa, la API responde **404, no 403**, para no revelar que existe.
+- `RolesGuard` + `@Roles()`. Rol `employee`: solo `POST /me/punch` y `GET /me/*`. Roles `admin` y `analyst`: `/admin/*` de sus empresas, y algunas rutas solo para `admin` (equipo y KPIs profundos).
 - Tests explícitos: el admin de B no ve, no corrige ni exporta datos de A, y el colaborador de A no accede a `/admin`.
 
 ## 5. API
 
 ```text
-POST /auth/register-company     crea empresa + admin
-POST /auth/login                admin: email+password · colaborador: empresa+cédula+PIN
-POST /auth/logout   GET /me
+POST /auth/register-company     crea grupo + empresa + admin
+POST /auth/staff/login          superadmin, admin, analista: email + password
+POST /auth/employee/login       colaborador: código de empresa + cédula + PIN
+POST /auth/logout   GET /auth/me
 
 POST /me/punch                  abre o cierra el turno (hora del servidor)
 GET  /me/today                  estado + turnos de hoy
@@ -191,15 +175,7 @@ GET    /admin/periods/export.csv?from&to
 
 ## 7. Pantallas
 
-| Ruta | Rol | Contenido |
-| --- | --- | --- |
-| `/registro` | público | Empresa + datos del admin |
-| `/login` | público | Pestañas Administrador / Colaborador |
-| `/marcar` | colaborador | Hora actual grande, estado y botón XL "Marcar entrada" o "Marcar salida", más los turnos de hoy |
-| `/rrhh/hoy` | admin | KPIs y listas Dentro / No ha marcado / Sin salida |
-| `/rrhh/colaboradores` | admin | Tabla, alta (nombre, cédula, PIN inicial) y desactivar |
-| `/rrhh/colaboradores/:id` | admin | Ficha tipo "Expediente", turnos y botón Corregir (modal con motivo) |
-| `/rrhh/periodos` | admin | Selector Semana / 1ª quincena / 2ª quincena / rango, tabla de horas con alertas y Exportar CSV |
+Las vistas por rol y por fase están en [`requisitos.md` §3](requisitos.md#3-casos-de-uso-y-vistas). La pantalla del colaborador (`/marcar`) muestra la hora actual en grande, el estado y un botón XL "Marcar entrada" o "Marcar salida", más los turnos de hoy. Las de RRHH (`/rrhh/*`) usan un layout con sidebar y un selector de empresa.
 
 ## 8. Supuestos a documentar en el README
 

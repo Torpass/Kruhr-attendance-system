@@ -23,7 +23,3 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false # Supabase → Connect → Transaction pooler (6543) + ?sslmode=require
-      - key: DEMO_EMAIL
-        sync: false
-      - key: DEMO_PASSWORD
-        sync: false

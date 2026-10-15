@@ -12,9 +12,6 @@ export const envSchema = z.object({
     .string()
     .min(32, 'JWT_SECRET debe tener al menos 32 caracteres'),
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().positive().default(28_800),
-  // Credenciales temporales mientras no existe la tabla de usuarios.
-  DEMO_EMAIL: z.email(),
-  DEMO_PASSWORD: z.string().min(8),
 });
 
 export type Env = z.infer<typeof envSchema>;

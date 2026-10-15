@@ -7,23 +7,33 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/ui/logo";
 import { api, ApiError } from "@/lib/api";
 
+type Mode = "employee" | "staff";
+
+const TABS: { mode: Mode; label: string }[] = [
+  { mode: "employee", label: "Colaborador" },
+  { mode: "staff", label: "Gestión" },
+];
+
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>("employee");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  function changeMode(next: Mode) {
+    setMode(next);
+    setError(null);
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const form = Object.fromEntries(new FormData(event.currentTarget));
     setPending(true);
     setError(null);
     try {
-      await api("/auth/login", {
+      await api(mode === "staff" ? "/auth/staff/login" : "/auth/employee/login", {
         method: "POST",
-        body: JSON.stringify({
-          email: form.get("email"),
-          password: form.get("password"),
-        }),
+        body: JSON.stringify(form),
       });
       router.replace("/panel");
     } catch (err) {
@@ -49,21 +59,86 @@ export default function LoginPage() {
           Entra para marcar o gestionar a tu equipo.
         </p>
 
-        <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
-          <Input
-            label="Correo"
-            name="email"
-            type="email"
-            autoComplete="username"
-            required
-          />
-          <Input
-            label="Contraseña"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
+        <div
+          role="tablist"
+          aria-label="Tipo de acceso"
+          className="mt-6 grid grid-cols-2 gap-1 rounded-lg bg-hueso p-1"
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.mode}
+              type="button"
+              role="tab"
+              id={`tab-${tab.mode}`}
+              aria-selected={mode === tab.mode}
+              aria-controls="login-form"
+              onClick={() => changeMode(tab.mode)}
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                mode === tab.mode
+                  ? "bg-white text-grafito shadow-kru"
+                  : "text-gris hover:text-grafito"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <form
+          key={mode}
+          id="login-form"
+          role="tabpanel"
+          aria-labelledby={`tab-${mode}`}
+          onSubmit={onSubmit}
+          className="mt-5 flex flex-col gap-4"
+        >
+          {mode === "employee" ? (
+            <>
+              <Input
+                label="Código de empresa"
+                name="company"
+                autoComplete="organization"
+                autoCapitalize="none"
+                placeholder="empresa-a-norte"
+                required
+              />
+              <Input
+                label="Cédula"
+                name="cedula"
+                inputMode="numeric"
+                autoComplete="username"
+                placeholder="12345678"
+                required
+              />
+              <Input
+                label="PIN"
+                name="pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="current-password"
+                pattern="\d{4,6}"
+                title="De 4 a 6 dígitos"
+                required
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                label="Correo"
+                name="email"
+                type="email"
+                autoComplete="username"
+                required
+              />
+              <Input
+                label="Contraseña"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </>
+          )}
           {error && (
             <p
               role="alert"
