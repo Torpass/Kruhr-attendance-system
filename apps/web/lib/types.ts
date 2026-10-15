@@ -115,3 +115,87 @@ export type AdminGroup = {
   slug: string;
   companies: { id: string; name: string; slug: string; rif: string | null; active: boolean }[];
 };
+
+export type RunState = "computed" | "validated" | "paid" | "cancelled";
+
+export type SalaryRule = {
+  code: string;
+  name: string;
+  sequence: number;
+  appearsOnPayslip: boolean;
+  condition: "always" | "nonzero_quantity";
+  quantitySource: "one" | "worked_hours" | "input" | "period_days" | "mondays";
+  quantityCode: string | null;
+  amountType: "fixed" | "monthly_wage" | "weekly_wage" | "daily_wage" | "hourly_wage" | "percentage_of";
+  amountFix: number | null;
+  baseCodes: string[] | null;
+  amountCapParam: string | null;
+  rate: number;
+};
+
+export type Structure = {
+  id: string;
+  code: string;
+  name: string;
+  schedulePay: "weekly" | "semi_monthly" | "monthly";
+  active: boolean;
+  rules?: SalaryRule[];
+};
+
+export type PayrollParameter = {
+  id: string;
+  code: string;
+  name: string;
+  values: { dateFrom: string; value: number }[];
+};
+
+export type InputType = { id: string; code: string; name: string };
+
+export type Contract = {
+  id: string;
+  employeeId: string;
+  wage: number;
+  dateStart: string;
+  dateEnd: string | null;
+  structure: { id: string; name: string };
+};
+
+export type PayrollRun = {
+  id: string;
+  name: string;
+  dateFrom: string;
+  dateTo: string;
+  state: RunState;
+  computedAt: string;
+  structure: { id: string; name: string };
+  payslips?: number | PayslipSummary[];
+  net?: number | null;
+};
+
+export type PayslipSummary = {
+  id: string;
+  wage: number;
+  earnings: number;
+  deductions: number;
+  net: number;
+  employee: { id: string; name: string; cedula: string };
+};
+
+export type PayslipLine = {
+  code: string;
+  name: string;
+  sequence: number;
+  quantity: number;
+  amount: number;
+  rate: number;
+  total: number;
+  appearsOnPayslip: boolean;
+};
+
+export type PayslipDetail = PayslipSummary & {
+  runId: string;
+  run: { name: string; dateFrom: string; dateTo: string; state: RunState };
+  lines: PayslipLine[];
+  workedMinutes: Record<string, number>;
+  inputs: Record<string, number>;
+};

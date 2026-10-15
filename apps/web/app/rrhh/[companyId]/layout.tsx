@@ -14,6 +14,7 @@ const SECTIONS = [
   { segment: "hoy", label: "Hoy", adminOnly: false },
   { segment: "colaboradores", label: "Colaboradores", adminOnly: false },
   { segment: "periodos", label: "Períodos", adminOnly: false },
+  { segment: "nomina", label: "Nómina", adminOnly: false },
   { segment: "equipo", label: "Equipo", adminOnly: true },
 ] as const;
 

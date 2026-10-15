@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { SalaryRule } from '@marcaje/core';
 import { and, asc, count, desc, eq, lte } from 'drizzle-orm';
 import { DB } from '../database/database.constants';
+import { installSampleCatalog } from './sample-catalog';
 import type { Database, DbExecutor } from '../database/database.module';
 import {
   companies,
@@ -245,6 +246,13 @@ export class CatalogRepository {
       )
       .orderBy(payrollParameters.id, desc(payrollParameterValues.dateFrom));
     return Object.fromEntries(rows.map((row) => [row.code, row.value]));
+  }
+
+  /** Instala el catálogo de referencia sin tocar nada existente. `undefined` si ya estaba. */
+  installSample(groupId: string) {
+    return this.db.transaction((tx) =>
+      installSampleCatalog(tx, groupId, 'add'),
+    );
   }
 
   listInputTypes(groupId: string) {

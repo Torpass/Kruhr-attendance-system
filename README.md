@@ -32,6 +32,11 @@ Ya está listo:
   - `/registro` de empresas;
   - `/rrhh/<empresa>/equipo`: el admin gestiona a sus analistas;
   - `/admin`: el superusuario gestiona grupos, empresas y sus admins.
+- **Nómina (fase B):**
+  - catálogo por grupo: estructuras con reglas de tipos fijos, parámetros por fecha y entradas manuales, con una estructura de referencia "Quincenal VE" instalable;
+  - contratos por colaborador;
+  - lotes por empresa (calcular → validar → pagar) que toman las horas de Marcaje y bloquean las correcciones del período al validarse;
+  - recibos imprimibles en `/marcar/recibos`.
 - **PWA instalable** (`manifest.webmanifest`), que abre en `/panel` y manda a cada quien a su pantalla.
 - **`/api/health`**, que hace `select 1` contra la base.
 

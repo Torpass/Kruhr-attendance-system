@@ -110,9 +110,14 @@ export default function MarcarPage() {
       <Card>
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Hoy</h2>
-          <Link href="/marcar/historial" className="text-sm font-semibold text-kru-700 hover:text-kru-800">
-            Ver historial
-          </Link>
+          <span className="flex gap-3">
+            <Link href="/marcar/recibos" className="text-sm font-semibold text-kru-700 hover:text-kru-800">
+              Mis recibos
+            </Link>
+            <Link href="/marcar/historial" className="text-sm font-semibold text-kru-700 hover:text-kru-800">
+              Historial
+            </Link>
+          </span>
         </div>
         <div className="mt-3">
           {today.data && today.data.shifts.length > 0 ? (

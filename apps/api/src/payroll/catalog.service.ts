@@ -61,6 +61,16 @@ export class CatalogService {
     return this.getStructure(groupId, id);
   }
 
+  /** Estructura "Quincenal VE" con sus parámetros y entradas, para empezar sin armar reglas a mano. */
+  async installSample(groupId: string) {
+    const id = await this.catalog.installSample(groupId);
+    if (!id)
+      throw new ConflictException(
+        'El grupo ya tiene la estructura de referencia',
+      );
+    return this.getStructure(groupId, id);
+  }
+
   listParameters(groupId: string) {
     return this.catalog.listParameters(groupId);
   }
