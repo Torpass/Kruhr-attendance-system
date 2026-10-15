@@ -21,29 +21,21 @@ import {
   type EmployeeLoginInput,
   type StaffLoginInput,
 } from './auth.schemas';
-import { AuthService } from './auth.service';
+import { AuthService, type OpenedSession } from './auth.service';
 
 // Límite por cuenta además del límite por IP: frena la fuerza bruta de un PIN desde muchas IPs.
 // El de IP es holgado porque un turno completo puede entrar a la vez desde el Wi-Fi de la empresa.
-const accountTracker =
-  (...fields: string[]): ThrottlerGetTrackerFunction =>
-  (req) => {
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    return fields
-      .map((field) => {
-        const value = body[field];
-        return typeof value === 'string' ? value.trim().toLowerCase() : '';
-      })
-      .join(':');
+// La clave se normaliza igual que la validación, para que "V-12.345.678" y "12345678" cuenten juntos.
+const bodyField =
+  (field: string, normalize: (value: string) => string) =>
+  (req: Record<string, any>): string => {
+    const value = (req.body as Record<string, unknown> | undefined)?.[field];
+    return typeof value === 'string' ? normalize(value) : '';
   };
-const loginThrottle = (...accountFields: string[]) =>
+const loginThrottle = (getTracker: ThrottlerGetTrackerFunction) =>
   Throttle({
     default: { limit: 30, ttl: 60_000 },
-    account: {
-      limit: 5,
-      ttl: 60_000,
-      getTracker: accountTracker(...accountFields),
-    },
+    account: { limit: 5, ttl: 60_000, getTracker },
   });
 
 @Controller('auth')
@@ -54,7 +46,7 @@ export class AuthController {
   ) {}
 
   @Public()
-  @loginThrottle('email')
+  @loginThrottle(bodyField('email', (v) => v.trim().toLowerCase()))
   @Post('staff/login')
   @HttpCode(HttpStatus.OK)
   async loginStaff(
@@ -65,14 +57,17 @@ export class AuthController {
   }
 
   @Public()
-  @loginThrottle('company', 'cedula')
+  @loginThrottle(bodyField('cedula', (v) => v.replace(/\D/g, '')))
   @Post('employee/login')
   @HttpCode(HttpStatus.OK)
   async loginEmployee(
     @Body(new ZodValidationPipe(employeeLoginSchema)) body: EmployeeLoginInput,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.startSession(res, await this.auth.loginEmployee(body));
+    const result = await this.auth.loginEmployee(body);
+    // Trabaja en varias empresas: el cliente muestra las opciones y repite con companyId.
+    if ('companies' in result) return result;
+    return this.startSession(res, result);
   }
 
   @Public()
@@ -87,10 +82,7 @@ export class AuthController {
     return { user };
   }
 
-  private startSession(
-    res: Response,
-    { user, token }: { user: SessionUser; token: string },
-  ) {
+  private startSession(res: Response, { user, token }: OpenedSession) {
     res.cookie(SESSION_COOKIE, token, {
       ...this.cookieOptions(),
       maxAge: this.config.get('JWT_EXPIRES_IN_SECONDS', { infer: true }) * 1000,
