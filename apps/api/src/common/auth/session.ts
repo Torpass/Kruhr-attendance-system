@@ -34,6 +34,8 @@ export type SessionUser =
       role: 'employee';
       name: string;
       cedula: string;
+      /** Empresa en la que marca: la que eligió al entrar. */
+      companyName: string;
       groupId: string;
       companyIds: [string];
     };

@@ -17,6 +17,7 @@ export type SessionUser =
       role: "employee";
       name: string;
       cedula: string;
+      companyName: string;
       groupId: string;
       companyIds: string[];
     };

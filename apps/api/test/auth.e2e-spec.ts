@@ -12,6 +12,9 @@ import { DB, PG_CLIENT } from '../src/database/database.constants';
 
 const STAFF_ID = '0b7f6a3e-7c1d-4b8e-9a51-2f4c6d8e0a11';
 const EMPLOYEE_ID = '5d2c9e41-3a7b-4f60-8c2d-91e4b6a7f022';
+const EMPLOYEE_SUR_ID = '5d2c9e41-3a7b-4f60-8c2d-91e4b6a7f099';
+const NORTE = { id: '7a1c2e3d-0000-4000-8000-000000000001', name: 'A Norte' };
+const SUR = { id: '7a1c2e3d-0000-4000-8000-000000000002', name: 'A Sur' };
 
 const staff: SessionUser = {
   kind: 'staff',
@@ -28,8 +31,15 @@ const employee: SessionUser = {
   role: 'employee',
   name: 'Ana Pérez',
   cedula: '12345678',
+  companyName: NORTE.name,
   groupId: 'g-a',
-  companyIds: ['c-norte'],
+  companyIds: [NORTE.id],
+};
+const employeeSur: SessionUser = {
+  ...employee,
+  id: EMPLOYEE_SUR_ID,
+  companyName: SUR.name,
+  companyIds: [SUR.id],
 };
 
 describe('Auth y health (e2e)', () => {
@@ -52,11 +62,14 @@ describe('Auth y health (e2e)', () => {
     repo.findStaffCredentials.mockImplementation((email: string) =>
       email === staff.email ? { id: STAFF_ID, passwordHash } : undefined,
     );
-    repo.findEmployeeCredentials.mockImplementation(
-      (company: string, cedula: string) =>
-        company === 'empresa-a-norte' && cedula === employee.cedula
-          ? { id: EMPLOYEE_ID, pinHash }
-          : undefined,
+    // Ana trabaja en dos empresas del grupo A, con el mismo PIN.
+    repo.findEmployeeCredentials.mockImplementation((cedula: string) =>
+      cedula === employee.cedula
+        ? [
+            { id: EMPLOYEE_ID, pinHash, company: NORTE },
+            { id: EMPLOYEE_SUR_ID, pinHash, company: SUR },
+          ]
+        : [],
     );
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -76,6 +89,7 @@ describe('Auth y health (e2e)', () => {
   beforeEach(() => {
     sessions.set(STAFF_ID, staff);
     sessions.set(EMPLOYEE_ID, employee);
+    sessions.set(EMPLOYEE_SUR_ID, employeeSur);
   });
 
   afterAll(() => app.close());
@@ -102,7 +116,7 @@ describe('Auth y health (e2e)', () => {
       .expect(400);
     await request(app.getHttpServer())
       .post('/api/auth/employee/login')
-      .send({ company: 'Empresa A!', cedula: 'abc', pin: '12' })
+      .send({ cedula: 'abc', pin: '12', companyId: 'no-es-uuid' })
       .expect(400);
   });
 
@@ -124,13 +138,21 @@ describe('Auth y health (e2e)', () => {
     await agent.get('/api/auth/me').expect(401);
   });
 
-  it('colaborador: entra con empresa + cédula con formato + PIN', async () => {
+  it('colaborador en varias empresas: elige la empresa y entra', async () => {
     const agent = request.agent(app.getHttpServer());
+
+    const choice = await agent
+      .post('/api/auth/employee/login')
+      .send({ cedula: 'V-12.345.678', pin: '4321' })
+      .expect(200, { companies: [NORTE, SUR] });
+    expect(choice.headers['set-cookie']).toBeUndefined();
+    await agent.get('/api/auth/me').expect(401);
+
     await agent
       .post('/api/auth/employee/login')
-      .send({ company: 'Empresa-A-Norte', cedula: 'V-12.345.678', pin: '4321' })
-      .expect(200, { user: employee });
-    await agent.get('/api/auth/me').expect(200, { user: employee });
+      .send({ cedula: '12345678', pin: '4321', companyId: SUR.id })
+      .expect(200, { user: employeeSur });
+    await agent.get('/api/auth/me').expect(200, { user: employeeSur });
   });
 
   it('rechaza credenciales incorrectas', async () => {
@@ -140,7 +162,7 @@ describe('Auth y health (e2e)', () => {
       .expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/employee/login')
-      .send({ company: 'empresa-b', cedula: '12345678', pin: '4321' })
+      .send({ cedula: '12345678', pin: '0000' })
       .expect(401);
   });
 
@@ -165,13 +187,17 @@ describe('Auth y health (e2e)', () => {
       .expect(401);
   });
 
-  it('limita los intentos por cuenta a 5 por minuto', async () => {
-    const attempt = () =>
+  it('limita los intentos por cédula a 5 por minuto', async () => {
+    // Cambiar el formato de la cédula no reinicia el contador.
+    const attempt = (cedula: string) =>
       request(app.getHttpServer())
         .post('/api/auth/employee/login')
-        .send({ company: 'empresa-a-sur', cedula: '99999999', pin: '0000' });
+        .send({ cedula, pin: '0000' });
 
-    for (let i = 0; i < 5; i++) await attempt().expect(401);
-    await attempt().expect(429);
+    for (const cedula of ['99999999', 'V-99.999.999', '99.999.999'])
+      await attempt(cedula).expect(401);
+    for (const cedula of ['V99999999', '99999999'])
+      await attempt(cedula).expect(401);
+    await attempt('E-99999999').expect(429);
   });
 });

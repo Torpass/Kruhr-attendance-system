@@ -84,7 +84,7 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 | Ruta | Rol | Casos de uso |
 | --- | --- | --- |
 | `/registro` | público | Una empresa se registra: crea el grupo, su primera empresa y su admin |
-| `/login` | público | **Colaborador:** código de empresa + cédula + PIN. **Gestión:** correo + contraseña |
+| `/login` | público | **Colaborador:** cédula + PIN; si trabaja en varias empresas, elige en cuál va a marcar. **Gestión:** correo + contraseña |
 | `/marcar` | employee | Marcar entrada o salida (la hora la pone el servidor) y ver los turnos de hoy |
 | `/marcar/historial` | employee | Su historial de turnos |
 | `/rrhh/hoy` | admin, analyst | KPIs del día y tres listas: **Dentro**, **No ha marcado** y **Sin salida**. Selector de empresa |
@@ -194,6 +194,7 @@ shift_corrections id, shift_id, company_id, corrected_by → users, reason, befo
 
 **Decisiones**
 - **Los colaboradores están separados de los usuarios de gestión**, como `hr.employee` y `res.users` en Odoo. Son dos formas de entrar: los colaboradores no tienen correo y entran con cédula + PIN.
+- **Una persona puede trabajar en varias empresas:** tiene un registro de colaborador en cada una (`UNIQUE (company_id, cedula)`). Al entrar con cédula + PIN elige en cuál marca, y la sesión queda atada a ese registro. La lista de empresas solo se muestra después de validar el PIN, para no revelar quiénes son los clientes.
 - **Las FKs compuestas impiden mezclar datos entre empresas o grupos desde la base**, no solo desde la API.
 - **`btree_gist`** se instala en el esquema `extensions`, que es la convención de Supabase.
 - **El superadmin no tiene filas en `user_companies`:** accede a todo.
@@ -227,11 +228,11 @@ Las líneas copian el código y el nombre de la regla. Así el recibo histórico
 | Endpoint | Quién | Credenciales |
 | --- | --- | --- |
 | `POST /api/auth/staff/login` | superadmin, admin, analista | correo + contraseña |
-| `POST /api/auth/employee/login` | colaborador | código de empresa + cédula (acepta `V-12.345.678`) + PIN de 4 a 6 dígitos |
+| `POST /api/auth/employee/login` | colaborador | cédula (acepta `V-12.345.678`) + PIN de 4 a 6 dígitos. Si el PIN coincide en varias empresas, responde `{ companies }` sin abrir sesión, y el cliente repite con `companyId` |
 | `POST /api/auth/logout` · `GET /api/auth/me` | sesión | cookie `httpOnly` |
 
 - **Hash:** contraseñas y PIN usan Argon2id con los parámetros de OWASP. Si la cuenta no existe, igual se verifica contra un hash de relleno, así el tiempo de respuesta no revela qué cuentas existen.
 - **JWT:** solo lleva `{sub, kind}`. El rol, el grupo y las empresas se leen de la base en cada request.
 - **Límite de intentos:**
   - 30 por minuto por IP: un turno completo puede entrar al mismo tiempo desde el Wi-Fi de la empresa.
-  - 5 por minuto **por cuenta**: frena la fuerza bruta del PIN desde muchas IPs.
+  - 5 por minuto **por cuenta** (correo, o cédula normalizada a dígitos): frena la fuerza bruta del PIN desde muchas IPs.

@@ -1,9 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { SessionUser } from '../common/auth/session';
 import { DB } from '../database/database.constants';
 import type { Database } from '../database/database.module';
 import { companies, employees, userCompanies, users } from '../database/schema';
+
+export interface EmployeeCredentials {
+  id: string;
+  pinHash: string;
+  company: { id: string; name: string };
+}
 
 /** Consultas de credenciales y de sesión. Solo devuelve personas y empresas activas. */
 @Injectable()
@@ -20,23 +26,24 @@ export class AuthRepository {
     return row;
   }
 
-  async findEmployeeCredentials(
-    companySlug: string,
-    cedula: string,
-  ): Promise<{ id: string; pinHash: string } | undefined> {
-    const [row] = await this.db
-      .select({ id: employees.id, pinHash: employees.pinHash })
+  /** Registros activos de una cédula, uno por empresa activa donde trabaja. */
+  findEmployeeCredentials(cedula: string): Promise<EmployeeCredentials[]> {
+    return this.db
+      .select({
+        id: employees.id,
+        pinHash: employees.pinHash,
+        company: { id: companies.id, name: companies.name },
+      })
       .from(employees)
       .innerJoin(companies, eq(companies.id, employees.companyId))
       .where(
         and(
-          eq(companies.slug, companySlug),
-          eq(companies.active, true),
           eq(employees.cedula, cedula),
           eq(employees.active, true),
+          eq(companies.active, true),
         ),
-      );
-    return row;
+      )
+      .orderBy(asc(companies.name));
   }
 
   async findStaffSession(id: string): Promise<SessionUser | undefined> {
@@ -73,6 +80,7 @@ export class AuthRepository {
         name: employees.name,
         cedula: employees.cedula,
         companyId: employees.companyId,
+        companyName: companies.name,
         groupId: companies.groupId,
       })
       .from(employees)

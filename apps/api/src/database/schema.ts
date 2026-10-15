@@ -120,7 +120,10 @@ export const userCompanies = pgTable(
   ],
 );
 
-/** Colaboradores: marcan desde el celular. Entran con empresa + cédula + PIN. */
+/**
+ * Colaboradores: marcan desde el celular. Entran con cédula + PIN.
+ * Quien trabaja en varias empresas tiene un registro en cada una y elige dónde marcar al entrar.
+ */
 export const employees = pgTable(
   'employees',
   {
