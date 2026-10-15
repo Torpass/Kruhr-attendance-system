@@ -89,7 +89,7 @@ apps/
     proxy.ts                   (en Next 16 `middleware` se renombró a `proxy`)
     next.config.ts             rewrites /api/:path* → API_URL
 packages/
-  core/                        calcularTurno, calcularPeriodo, alertasSemanales, aCSV  ← puro + tests
+  core/                        computeShift, summarizePeriod, periodFor, periodToCsv  ← puro + tests
   contracts/                   esquemas Zod + tipos de request/response compartidos (API y formularios)
 docs/
 ```
@@ -150,18 +150,20 @@ GET    /admin/periods/export.csv?from&to
 1. Se convierten la entrada y la salida a hora de Caracas. La fecha del turno es la fecha local de la entrada.
 2. `corte = entrada + 8h`. El tramo `[entrada, corte)` es ordinario y `[corte, salida)` es extra.
 3. Cada tramo se parte en las fronteras locales de 05:00 y 19:00. Cada sub-tramo es nocturno si su hora local está en `[19:00, 05:00)` y diurno en caso contrario.
-4. Se acumulan **minutos enteros**: `ordinarios`, `nocturnaOrdinaria`, `extraDiurna`, `extraNocturna`.
+4. Se acumulan **minutos enteros** (los segundos de cada marca se ignoran): `worked`, `nightOrdinary`, `overtimeDay` y `overtimeNight`. Lo hace `computeShift` en [`packages/core/src/shift.ts`](../packages/core/src/shift.ts).
 
-**Por período:** se suman los minutos de todos los turnos con fecha dentro de `[desde, hasta]` y **solo al final** se calcula `round(min/60, 2)`.
+**Por período** (`summarizePeriod`): se suman los minutos de todos los turnos con fecha dentro de `[desde, hasta]` y **solo al final** se calcula `round(min/60, 2)`.
 
-**Alerta:** se agrupan los minutos extra por semana ISO (lunes a domingo, según la fecha del turno). Si superan 600 min (10 h), RRHH ve una alerta en esa semana. Si el período es una quincena, se evalúa cada semana que toca.
+**Alerta:** se agrupan los minutos extra por semana ISO (lunes a domingo, según la fecha del turno). Si superan 600 min (10 h), RRHH ve una alerta en esa semana. Si el período es una quincena, se evalúa cada semana que toca, **completa**: la API carga los turnos de `alertWindow(período)` (de lunes a domingo), aunque solo los del período sumen en los totales.
 
 **Comprobación con los ejemplos del enunciado:**
 - **Lun 06:00→16:00:** el corte es a las 14:00. De 14:00 a 16:00 hay 2,00 h de extra diurna y no hay horas nocturnas. ✔
 - **Mar 14:00→Mié 00:30:** el corte es a las 22:00. La nocturna ordinaria va de 19:00 a 22:00 (3,00 h) y la extra nocturna de 22:00 a 00:30 (2,50 h). ✔
 
 **Casos de prueba adicionales:**
-- Turno nocturno completo, 22:00→07:00: cruza la frontera de las 05:00 dentro de las horas extra.
+- Turno nocturno completo, 22:00→07:00: el corte cae a las 06:00, así que la frontera de las 05:00 queda en las horas ordinarias (7 h nocturnas) y la hora extra (06:00–07:00) es diurna.
+- 18:00→04:00: la ordinaria cruza las 19:00 y la extra (02:00–04:00) es nocturna.
+- Un turno de 26 h que cruza dos noches.
 - Turno de 8 h exactas: 0 h extra.
 - Entrada o salida exactamente a las 19:00 o a las 05:00: límites semiabiertos.
 - Un turno que empieza el domingo cuenta en esa semana y en ese período, aunque termine el lunes.
@@ -169,7 +171,7 @@ GET    /admin/periods/export.csv?from&to
 - Alerta con 10 h exactas: no salta. Con 10 h y 1 min: sí salta.
 - Turnos abiertos: se excluyen del cálculo y se listan como pendientes.
 
-**CSV:** `;` como separador, punto decimal, UTF-8 con BOM (para que Excel lea las tildes), una fila por colaborador **activo**, incluidos los que tienen 0 h.
+**CSV** (`periodToCsv`): `;` como separador, punto decimal, UTF-8 **sin BOM**, una fila por colaborador **activo**, incluidos los que tienen 0 h. Los valores con `;`, comillas o saltos de línea van entre comillas (RFC 4180). Sin BOM porque lo consume el motor de nómina, y el ejemplo del enunciado no lo trae; Excel en Windows puede mostrar mal las tildes si se abre con doble clic.
 
 ## 7. Pantallas
 
