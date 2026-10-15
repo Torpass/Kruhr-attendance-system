@@ -9,3 +9,7 @@ coverage/
 .vercel
 *.log
 .DS_Store
+
+# Bitácora local de decisiones y contexto (no se versiona)
+BITACORA.md
+CLAUDE.local.md
