@@ -10,7 +10,7 @@ export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has(SESSION_COOKIE);
   const { pathname } = request.nextUrl;
 
-  const isPrivate = ["/panel", "/marcar", "/rrhh"].some((prefix) => pathname.startsWith(prefix));
+  const isPrivate = ["/panel", "/marcar", "/rrhh", "/admin"].some((prefix) => pathname.startsWith(prefix));
   if (!hasSession && isPrivate) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -21,5 +21,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/registro", "/panel/:path*", "/marcar/:path*", "/rrhh/:path*"],
+  matcher: ["/login", "/registro", "/panel/:path*", "/marcar/:path*", "/rrhh/:path*", "/admin/:path*"],
 };

@@ -4,13 +4,16 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "@/lib/session";
 
-/** Entrada después del login: el colaborador va a marcar y la gestión a RRHH. */
+/** Entrada después del login: el colaborador va a marcar, el superusuario a su panel y la gestión a RRHH. */
 export default function PanelPage() {
   const router = useRouter();
   const { data: user } = useSession();
 
   useEffect(() => {
-    if (user) router.replace(user.kind === "employee" ? "/marcar" : "/rrhh");
+    if (!user) return;
+    router.replace(
+      user.kind === "employee" ? "/marcar" : user.role === "superadmin" ? "/admin" : "/rrhh",
+    );
   }, [user, router]);
 
   return (
