@@ -58,7 +58,9 @@ export default function PanelPage() {
               </span>
               <div className="min-w-0">
                 <p className="font-semibold">{user.name}</p>
-                <p className="truncate text-[13px] text-gris">{user.email}</p>
+                <p className="truncate text-[13px] text-gris">
+                  {user.kind === "staff" ? user.email : `C.I. ${user.cedula}`}
+                </p>
               </div>
               <span className="ml-auto">
                 <Badge>{ROLE_LABEL[user.role]}</Badge>
