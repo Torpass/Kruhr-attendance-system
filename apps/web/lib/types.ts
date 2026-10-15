@@ -99,3 +99,19 @@ export type Correction = {
   createdAt: string;
   correctedBy: { id: string; name: string };
 };
+
+export type StaffMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: "superadmin" | "admin" | "analyst";
+  active: boolean;
+  companyIds: string[];
+};
+
+export type AdminGroup = {
+  id: string;
+  name: string;
+  slug: string;
+  companies: { id: string; name: string; slug: string; rif: string | null; active: boolean }[];
+};

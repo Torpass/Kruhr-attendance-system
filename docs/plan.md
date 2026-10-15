@@ -126,7 +126,7 @@ Decisiones:
 
 ## 5. API
 
-Todas las rutas van bajo `/api`. Las de `/companies/:companyId/*` pasan por `CompanyScopeGuard`: la empresa debe estar entre las de la sesión, o la respuesta es 404.
+Todas las rutas van bajo `/api`. Las que llevan `:companyId` o `:groupId` pasan por `TenantScopeGuard`: la empresa o el grupo deben ser de la sesión (el superadmin pasa si existen), o la respuesta es 404.
 
 ```text
 POST /auth/register             público: crea grupo + empresa + admin y abre la sesión
@@ -148,6 +148,14 @@ PATCH /companies/:companyId/shifts/:shiftId      { clockIn?, clockOut?, reason }
 GET  /companies/:companyId/shifts/:shiftId/corrections
 GET  /companies/:companyId/periods?kind=week|first_half|second_half&date   (o ?from&to)
 GET  /companies/:companyId/periods/export.csv    mismos parámetros
+
+GET   /groups/:groupId/staff                     equipo del grupo (admin, superadmin)
+POST  /groups/:groupId/staff                     { name, email, password, role, companyIds }   admin → solo analistas
+PATCH /groups/:groupId/staff/:userId             { name?, role?, active?, password?, companyIds? }
+GET   /admin/groups                              superadmin: grupos con sus empresas
+POST  /admin/groups                              { name, code? } → grupo + primera empresa
+POST  /admin/groups/:groupId/companies           { name, code?, rif? }
+PATCH /admin/companies/:companyId                { name?, rif?, active? }
 ```
 
 ## 6. Motor de cálculo (`packages/core`)

@@ -11,9 +11,10 @@ import { useLogout, useSession } from "@/lib/session";
 const ROLE_LABEL = { superadmin: "Superusuario", admin: "Administrador", analyst: "Analista" } as const;
 
 const SECTIONS = [
-  { segment: "hoy", label: "Hoy" },
-  { segment: "colaboradores", label: "Colaboradores" },
-  { segment: "periodos", label: "Períodos" },
+  { segment: "hoy", label: "Hoy", adminOnly: false },
+  { segment: "colaboradores", label: "Colaboradores", adminOnly: false },
+  { segment: "periodos", label: "Períodos", adminOnly: false },
+  { segment: "equipo", label: "Equipo", adminOnly: true },
 ] as const;
 
 export default function RrhhLayout({ children }: LayoutProps<"/rrhh/[companyId]">) {
@@ -27,6 +28,8 @@ export default function RrhhLayout({ children }: LayoutProps<"/rrhh/[companyId]"
   useEffect(() => rememberCompany(companyId), [companyId]);
 
   const section = SECTIONS.find((s) => pathname.includes(`/${s.segment}`))?.segment ?? "hoy";
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const sections = SECTIONS.filter((s) => !s.adminOnly || isAdmin);
 
   return (
     <>
@@ -57,6 +60,14 @@ export default function RrhhLayout({ children }: LayoutProps<"/rrhh/[companyId]"
                 <span className="text-gris">{ROLE_LABEL[user.role]}</span>
               </span>
             )}
+            {user?.role === "superadmin" && (
+              <Link
+                href="/admin"
+                className="text-sm font-semibold text-kru-700 hover:text-kru-800"
+              >
+                Panel
+              </Link>
+            )}
             <Button variant="secondary" onClick={() => void logout()}>
               Salir
             </Button>
@@ -64,7 +75,7 @@ export default function RrhhLayout({ children }: LayoutProps<"/rrhh/[companyId]"
         </div>
         <nav aria-label="Secciones" className="mx-auto max-w-6xl px-4">
           <ul className="-mb-px flex gap-1 overflow-x-auto">
-            {SECTIONS.map((s) => (
+            {sections.map((s) => (
               <li key={s.segment}>
                 <Link
                   href={`/rrhh/${companyId}/${s.segment}`}

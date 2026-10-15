@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { hashSecret } from '../auth/password';
-import type { Database } from './database.module';
+import type { Transaction as Tx } from './database.module';
 import {
   companies,
   companyGroups,
@@ -22,8 +22,6 @@ const seedEnv = z.object({
   SEED_DEMO_PASSWORD: z.string().min(8),
   SEED_DEMO_PIN: z.string().regex(/^\d{4,6}$/),
 });
-
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 async function upsertGroup(tx: Tx, name: string, slug: string) {
   const [group] = await tx

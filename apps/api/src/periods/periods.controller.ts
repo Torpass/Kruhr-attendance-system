@@ -5,7 +5,7 @@ import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { periodQuerySchema, type PeriodQuery } from './periods.schemas';
 import { PeriodsService, resolvePeriod } from './periods.service';
 
-/** Cálculo del período y exportación a CSV. El acceso a `:companyId` lo valida CompanyScopeGuard. */
+/** Cálculo del período y exportación a CSV. El acceso a `:companyId` lo valida TenantScopeGuard. */
 @Roles('admin', 'analyst')
 @Controller('companies/:companyId/periods')
 export class PeriodsController {

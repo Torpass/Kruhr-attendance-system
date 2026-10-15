@@ -8,10 +8,11 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { AttendanceModule } from './attendance/attendance.module';
 import { CompaniesModule } from './companies/companies.module';
-import { CompanyScopeGuard } from './companies/company-scope.guard';
+import { TenantScopeGuard } from './companies/tenant-scope.guard';
 import { DatabaseErrorFilter } from './common/filters/database-error.filter';
 import { EmployeesModule } from './employees/employees.module';
 import { PeriodsModule } from './periods/periods.module';
+import { StaffModule } from './staff/staff.module';
 import { validateEnv, type Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -45,13 +46,14 @@ import { HealthModule } from './health/health.module';
     EmployeesModule,
     AttendanceModule,
     PeriodsModule,
+    StaffModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    // En orden: límite de requests → sesión → rol → empresa.
+    // En orden: límite de requests → sesión → rol → empresa o grupo.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
-    { provide: APP_GUARD, useClass: CompanyScopeGuard },
+    { provide: APP_GUARD, useClass: TenantScopeGuard },
     { provide: APP_FILTER, useClass: DatabaseErrorFilter },
   ],
 })

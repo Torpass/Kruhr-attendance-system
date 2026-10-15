@@ -64,8 +64,8 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 
 | Rol | Alcance | Puede |
 | --- | --- | --- |
-| `superadmin` | Todo el sistema | Crear y gestionar grupos y empresas, crear usuarios de cualquier rol y entrar a cualquier empresa |
-| `admin` | Las N empresas asignadas, todas de **un** grupo | Todo lo del analista. Además, gestionar admins y analistas de su grupo, desactivar personas y ver KPIs profundos |
+| `superadmin` | Todo el sistema | Crear y gestionar grupos y empresas, crear admins y analistas en cualquier grupo, y entrar a cualquier empresa |
+| `admin` | Las N empresas asignadas, todas de **un** grupo | Todo lo del analista. Además, gestionar **analistas** (alta, empresas, contraseña, desactivar) con las empresas que él gestiona, editar y desactivar colaboradores, y ver KPIs profundos. Los admins los crea el superusuario |
 | `analyst` | Las N empresas asignadas, todas de **un** grupo | Dar de alta **solo colaboradores**, ver el día, corregir marcajes, calcular el período y exportar el CSV, gestionar estructuras, reglas, parámetros y entradas, generar, validar y pagar la nómina, y ver KPIs básicos |
 | `employee` | Él mismo, en **una** empresa | Marcar, ver su historial y ver sus recibos |
 
@@ -91,8 +91,8 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 | `/rrhh/colaboradores` | admin, analyst | Lista de colaboradores, alta (nombre, cédula y PIN inicial) y desactivación |
 | `/rrhh/colaboradores/:id` | admin, analyst | Ficha con sus turnos. Corregir un turno o crear uno manual, siempre con motivo |
 | `/rrhh/periodos` | admin, analyst | Elegir semana, 1.ª o 2.ª quincena, o un rango. Tabla de horas con alerta si hay más de 10 h extra en una semana. Exportar CSV |
-| `/rrhh/equipo` | admin | Alta de analistas y admins, y asignación de empresas del grupo |
-| `/admin/empresas` | superadmin | Grupos, empresas y usuarios de todo el sistema |
+| `/rrhh/<empresa>/equipo` | admin, superadmin | Equipo de gestión del grupo: el admin da de alta analistas y les asigna empresas que él gestiona; el superusuario también da de alta admins. Nadie se cambia su propio rol ni se desactiva |
+| `/admin` | superadmin | Grupos y empresas (crear, RIF, activar o desactivar), con acceso al RRHH y al equipo de cada una |
 
 ### Fase B: nómina
 

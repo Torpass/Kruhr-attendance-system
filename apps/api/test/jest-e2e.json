@@ -16,5 +16,6 @@
   "moduleNameMapper": {
     "^@marcaje/core$": "<rootDir>/../../../packages/core/src"
   },
-  "globalSetup": "<rootDir>/global-setup.ts"
+  "globalSetup": "<rootDir>/global-setup.ts",
+  "maxWorkers": 1
 }

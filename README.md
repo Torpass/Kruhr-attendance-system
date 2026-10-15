@@ -29,7 +29,10 @@ Ya está listo:
 - **Pantallas:**
   - colaborador (móvil): `/marcar` y `/marcar/historial`;
   - RRHH con selector de empresa: `/rrhh/<empresa>/hoy`, `colaboradores` (alta, ficha, corregir con motivo e historial) y `periodos` (semana, quincenas o rango, alertas y CSV);
-  - `/registro` de empresas.
+  - `/registro` de empresas;
+  - `/rrhh/<empresa>/equipo`: el admin gestiona a sus analistas;
+  - `/admin`: el superusuario gestiona grupos, empresas y sus admins.
+- **PWA instalable** (`manifest.webmanifest`), que abre en `/panel` y manda a cada quien a su pantalla.
 - **`/api/health`**, que hace `select 1` contra la base.
 
 Los requerimientos, los roles, las vistas y el modelo de datos completo (incluida la nómina) están en [`docs/requisitos.md`](docs/requisitos.md).
