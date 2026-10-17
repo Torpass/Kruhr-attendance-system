@@ -29,7 +29,7 @@ export class PeriodsController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="marcaje_${period.from}_${period.to}.csv"`,
+      `attachment; filename="kruhr_${period.from}_${period.to}.csv"`,
     );
     return this.periods.csv(companyId, period);
   }

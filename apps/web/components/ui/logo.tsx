@@ -1,14 +1,13 @@
+import Image from "next/image";
+import kruLogo from "@/public/brand/kru-logo.png";
+
+/** Marca del producto: el logo de Kru seguido de "Hr" (KruHr). */
 export function Logo() {
   return (
-    <span className="inline-flex items-center gap-2">
-      <span
-        aria-hidden
-        className="grid h-8 w-8 place-items-center rounded-lg bg-kru-600 text-sm font-extrabold text-white"
-      >
-        M
-      </span>
-      <span className="text-xl font-extrabold tracking-[-0.03em] text-grafito">
-        Marcaje
+    <span role="img" aria-label="KruHr" className="inline-flex items-end gap-1">
+      <Image src={kruLogo} alt="" priority className="h-7 w-auto" />
+      <span aria-hidden className="text-[2.2rem] font-extrabold leading-[0.72] tracking-[-0.05em] text-kru-700">
+        Hr
       </span>
     </span>
   );

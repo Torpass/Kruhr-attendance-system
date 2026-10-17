@@ -10,9 +10,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Marcaje · Kru",
+  title: "KruHr",
   description: "Registro de entrada y salida de colaboradores.",
-  appleWebApp: { capable: true, title: "Marcaje", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "KruHr", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

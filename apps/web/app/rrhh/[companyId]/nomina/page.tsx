@@ -66,7 +66,7 @@ export default function NominaPage({ searchParams }: PageProps<"/rrhh/[companyId
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.025em]">Nómina</h1>
           <p className="mt-1 text-sm text-gris">
-            Cada lote calcula los recibos de un período con las horas de Marcaje. Al validarlo, los
+            Cada lote calcula los recibos de un período con las horas marcadas. Al validarlo, los
             turnos de ese período ya no se pueden corregir.
           </p>
         </div>

@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 /** PWA instalable: el colaborador la agrega a su pantalla de inicio y abre directo en marcar. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Marcaje · Kru",
-    short_name: "Marcaje",
+    name: "KruHr",
+    short_name: "KruHr",
     description: "Registro de entrada y salida de colaboradores.",
     lang: "es-VE",
     start_url: "/panel",

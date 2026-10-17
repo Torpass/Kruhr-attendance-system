@@ -202,7 +202,7 @@ export default function LoginPage() {
               </Button>
             </form>
             <p className="mt-6 text-center text-sm text-gris">
-              ¿Tu empresa aún no usa Marcaje?{" "}
+              ¿Tu empresa aún no usa KruHr?{" "}
               <Link href="/registro" className="font-semibold text-kru-700 hover:text-kru-800">
                 Regístrala
               </Link>

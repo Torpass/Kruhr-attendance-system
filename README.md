@@ -1,4 +1,4 @@
-# Marcaje · Kru
+# KruHr
 
 Registro de entrada y salida de colaboradores, con cálculo de horas por período para la nómina de Kru.
 Prueba técnica: ver [`prueba-tecnica-kru-marcaje.md`](prueba-tecnica-kru-marcaje.md) · plan en [`docs/plan.md`](docs/plan.md) · UI en [`docs/design-system.md`](docs/design-system.md).
@@ -35,7 +35,7 @@ Ya está listo:
 - **Nómina (fase B):**
   - catálogo por grupo: estructuras con reglas de tipos fijos, parámetros por fecha y entradas manuales, con una estructura de referencia "Quincenal VE" instalable;
   - contratos por colaborador;
-  - lotes por empresa (calcular → validar → pagar) que toman las horas de Marcaje y bloquean las correcciones del período al validarse;
+  - lotes por empresa (calcular → validar → pagar) que toman las horas de KruHr y bloquean las correcciones del período al validarse;
   - recibos imprimibles en `/marcar/recibos`.
 - **PWA instalable** (`manifest.webmanifest`), que abre en `/panel` y manda a cada quien a su pantalla.
 - **`/api/health`**, que hace `select 1` contra la base.
