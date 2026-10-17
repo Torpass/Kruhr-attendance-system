@@ -86,7 +86,7 @@ describe('Control de horario (integración)', () => {
         clockOut: caracas(to),
       })),
     );
-    // Ana no tiene horario: sus marcajes no se comparan.
+    // Ana no tiene contrato: sus marcajes no se comparan.
     await db.insert(schema.shifts).values({
       companyId: ids.norte,
       employeeId: ids.ana,
@@ -119,14 +119,14 @@ describe('Control de horario (integración)', () => {
     expect(luis[1]).toMatchObject({ differenceMinutes: -480 });
 
     const ana = days.filter((d) => d.employee.id === ids.ana);
-    expect(ana).toMatchObject([{ date: '2026-10-05', status: 'unscheduled' }]);
+    expect(ana).toMatchObject([{ date: '2026-10-05', status: 'no_contract' }]);
     expect(res.body.counts).toMatchObject({
       late: 1,
       absent: 1,
       extended: 1,
       on_time: 2,
       worked_day_off: 1,
-      unscheduled: 1,
+      no_contract: 1,
     });
   });
 

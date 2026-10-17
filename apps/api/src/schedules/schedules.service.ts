@@ -68,13 +68,11 @@ export class SchedulesService {
   }
 
   /**
-   * Políticas de los colaboradores de la empresa en el período: la del horario del contrato
-   * vigente cada día; sin contrato o sin horario, la política por defecto.
+   * Contratos de los colaboradores de la empresa en el período: si tenía contrato cada día
+   * (`hasContract`) y su política (`policyFor`): la del horario del contrato vigente; sin
+   * contrato o sin horario, la política por defecto.
    */
-  async policiesFor(
-    companyId: string,
-    period: Period,
-  ): Promise<PoliciesByEmployee> {
+  async contractTerms(companyId: string, period: Period) {
     const rows = await this.schedules.contractSchedules(companyId, period);
     const byEmployee = new Map<string, typeof rows>();
     for (const row of rows) {
@@ -82,19 +80,30 @@ export class SchedulesService {
       list.push(row);
       byEmployee.set(row.employeeId, list);
     }
-    return (employeeId) => {
-      const contracts = byEmployee.get(employeeId);
-      if (!contracts) return () => DEFAULT_POLICY;
-      return (date: LocalDate) => {
-        const contract = contracts.find(
+    return (employeeId: string) => {
+      const contracts = byEmployee.get(employeeId) ?? [];
+      const contractOn = (date: LocalDate) =>
+        contracts.find(
           (c) =>
             c.dateStart <= date && (c.dateEnd === null || date <= c.dateEnd),
         );
-        return contract?.schedule
-          ? toPolicy(contract.schedule)
-          : DEFAULT_POLICY;
+      return {
+        hasContract: (date: LocalDate) => Boolean(contractOn(date)),
+        policyFor: (date: LocalDate) => {
+          const schedule = contractOn(date)?.schedule;
+          return schedule ? toPolicy(schedule) : DEFAULT_POLICY;
+        },
       };
     };
+  }
+
+  /** Política de cada colaborador en cada día (ver `contractTerms`). */
+  async policiesFor(
+    companyId: string,
+    period: Period,
+  ): Promise<PoliciesByEmployee> {
+    const terms = await this.contractTerms(companyId, period);
+    return (employeeId) => terms(employeeId).policyFor;
   }
 }
 

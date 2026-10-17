@@ -24,6 +24,7 @@ export const PUNCTUALITY_TOLERANCE_MINUTES = 10;
  * - `open`: marcó entrada y no salida.
  * - `worked_day_off`: marcó en un día libre de su horario.
  * - `unscheduled`: marcó, pero su horario no tiene jornada fija (sin comparación).
+ * - `no_contract`: marcó un día en que no tenía contrato (sin horario contra qué comparar).
  */
 export const DAY_STATUSES = [
   'on_time',
@@ -36,6 +37,7 @@ export const DAY_STATUSES = [
   'open',
   'worked_day_off',
   'unscheduled',
+  'no_contract',
 ] as const;
 export type DayStatus = (typeof DAY_STATUSES)[number];
 
@@ -72,6 +74,8 @@ const minutesBetween = (from: number, to: number) =>
  *   (primera entrada, última salida, minutos sumados).
  * - Los días sin jornada y sin marcajes no se devuelven, ni los días futuros sin marcajes.
  * - `now` decide si un día con jornada sin marcajes es `absent` (ya terminó) o `pending`.
+ * - `hasContract` dice si ese día tenía contrato: sin contrato no hay jornada ni ausencias, y sus
+ *   marcajes salen como `no_contract`.
  */
 export function compareAttendance<T extends ShiftRecord>(
   shifts: T[],
@@ -81,7 +85,13 @@ export function compareAttendance<T extends ShiftRecord>(
     now = new Date(),
     tolerance = PUNCTUALITY_TOLERANCE_MINUTES,
     timeZone = CARACAS,
-  }: { now?: Date; tolerance?: number; timeZone?: string } = {},
+    hasContract = () => true,
+  }: {
+    now?: Date;
+    tolerance?: number;
+    timeZone?: string;
+    hasContract?: (date: LocalDate) => boolean;
+  } = {},
 ): AttendanceDay<T>[] {
   const byDay = new Map<LocalDate, T[]>();
   for (const shift of shifts) {
@@ -94,8 +104,9 @@ export function compareAttendance<T extends ShiftRecord>(
 
   const days: AttendanceDay<T>[] = [];
   for (let date = period.from; date <= period.to; date = addDays(date, 1)) {
+    const covered = hasContract(date);
     const policy = policyFor(date);
-    const window = programmedWindow(date, policy, timeZone);
+    const window = covered ? programmedWindow(date, policy, timeZone) : null;
     const dayShifts = (byDay.get(date) ?? []).sort(
       (a, b) => a.clockIn.getTime() - b.clockIn.getTime(),
     );
@@ -152,9 +163,11 @@ export function compareAttendance<T extends ShiftRecord>(
     }
 
     if (!window) {
-      day.status = policy.days?.some(Boolean)
-        ? 'worked_day_off'
-        : 'unscheduled';
+      day.status = !covered
+        ? 'no_contract'
+        : policy.days?.some(Boolean)
+          ? 'worked_day_off'
+          : 'unscheduled';
       days.push(day);
       continue;
     }

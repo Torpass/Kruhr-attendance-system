@@ -76,10 +76,10 @@ export class PeriodsService {
       from: addDays(period.from, -1),
       to: addDays(period.to, 1),
     };
-    const [employees, shifts, policies] = await Promise.all([
+    const [employees, shifts, terms] = await Promise.all([
       this.employees.list(companyId),
       this.shifts.listForCompany(companyId, instantRange(window)),
-      this.schedules.policiesFor(companyId, window),
+      this.schedules.contractTerms(companyId, window),
     ]);
 
     const byEmployee = new Map<string, typeof shifts>();
@@ -91,7 +91,9 @@ export class PeriodsService {
     }
 
     const days = employees.flatMap(({ id, cedula, name, active }) =>
-      compareAttendance(byEmployee.get(id) ?? [], period, policies(id))
+      compareAttendance(byEmployee.get(id) ?? [], period, terms(id).policyFor, {
+        hasContract: terms(id).hasContract,
+      })
         .filter((day) => active || day.shifts.length > 0)
         .map(({ shifts: dayShifts, ...day }) => ({
           ...day,
