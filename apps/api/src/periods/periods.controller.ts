@@ -19,6 +19,15 @@ export class PeriodsController {
     return this.periods.summary(companyId, resolvePeriod(query));
   }
 
+  /** Horario contra marcajes: puntualidad, ausencias y horas frente a lo programado. */
+  @Get('attendance')
+  attendance(
+    @Param('companyId') companyId: string,
+    @Query(new ZodValidationPipe(periodQuerySchema)) query: PeriodQuery,
+  ) {
+    return this.periods.attendance(companyId, resolvePeriod(query));
+  }
+
   @Get('export.csv')
   async export(
     @Param('companyId') companyId: string,

@@ -28,6 +28,7 @@ function navigation(companyId: string | undefined, role: string | undefined): Gr
         title: "Operación",
         items: [
           { href: `${base}/hoy`, label: "Asistencia de hoy", icon: "clock" },
+          { href: `${base}/control-horario`, label: "Control de horario", icon: "clipboard" },
           { href: `${base}/periodos`, label: "Períodos", icon: "calendar" },
           { href: `${base}/nomina`, label: "Lotes de nómina", icon: "wallet" },
         ],

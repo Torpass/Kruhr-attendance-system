@@ -85,39 +85,51 @@ function splitDayNight(
 }
 
 /** Lunes = 0 … domingo = 6. */
-const weekdayIndex = (date: LocalDate) =>
+export const weekdayIndex = (date: LocalDate) =>
   (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
 
 const overlap = ([a, b]: Interval, [c, d]: Interval) =>
   Math.max(0, Math.min(b, d) - Math.max(a, c));
 
 /**
- * Jornada programada que corresponde al turno: la del día en que empieza o, si una jornada
- * nocturna del día anterior lo cubre más, esa. `null` si ese día es libre.
+ * Jornada programada de un día, como instantes [entrada, salida) en ms. Si la salida es igual o
+ * anterior a la entrada, termina al día siguiente. `null` si el día es libre o no hay jornada.
  */
-function scheduledWindow(
-  shift: Interval,
-  date: LocalDate,
+export function programmedWindow(
+  day: LocalDate,
   policy: WorkPolicy,
-  timeZone: string,
-): Interval | null {
-  const windows = [date, addDays(date, -1)].flatMap((day) => {
-    const programmed = policy.days?.[weekdayIndex(day)];
-    if (!programmed) return [];
-    const dayStart = startOfLocalDay(day, timeZone).getTime();
-    const from = minutesOfDay(programmed.start);
-    const to = minutesOfDay(programmed.end);
-    return [
-      [
-        atLocalMinutes(dayStart, from, 0, timeZone),
-        atLocalMinutes(dayStart, to, to <= from ? 1 : 0, timeZone),
-      ] as Interval,
-    ];
-  });
-  if (windows.length === 0) return null;
-  return windows.reduce((best, w) =>
-    overlap(shift, w) > overlap(shift, best) ? w : best,
-  );
+  timeZone = CARACAS,
+): [number, number] | null {
+  const programmed = policy.days?.[weekdayIndex(day)];
+  if (!programmed) return null;
+  const dayStart = startOfLocalDay(day, timeZone).getTime();
+  const from = minutesOfDay(programmed.start);
+  const to = minutesOfDay(programmed.end);
+  return [
+    atLocalMinutes(dayStart, from, 0, timeZone),
+    atLocalMinutes(dayStart, to, to <= from ? 1 : 0, timeZone),
+  ];
+}
+
+/**
+ * Día de trabajo al que pertenece un turno: el día en que empieza o, si la jornada nocturna del
+ * día anterior lo cubre más, ese día. Así quien entra a las 00:10 a un turno de 22:00 cuenta para
+ * la jornada que empezó la noche anterior.
+ */
+export function workdayOf(
+  [start, end]: Interval,
+  policy: WorkPolicy,
+  timeZone = CARACAS,
+): { date: LocalDate; window: Interval | null } {
+  const date = localDateOf(start, timeZone);
+  const own = programmedWindow(date, policy, timeZone);
+  const previousDate = addDays(date, -1);
+  const previous = programmedWindow(previousDate, policy, timeZone);
+  const covers = (window: Interval | null) =>
+    window ? overlap([start, end], window) : 0;
+  return previous && covers(previous) > covers(own)
+    ? { date: previousDate, window: previous }
+    : { date, window: own };
 }
 
 const floorToMinute = (date: Date) =>
@@ -153,7 +165,7 @@ export function computeShift(
   let ordinary: Interval[];
   let overtime: Interval[];
   if (policy.overtimeMode === 'schedule') {
-    const window = scheduledWindow([start, end], date, policy, timeZone);
+    const { window } = workdayOf([start, end], policy, timeZone);
     if (window) {
       const [ws, we] = window;
       ordinary = valid([[Math.max(start, ws), Math.min(end, we)]]);

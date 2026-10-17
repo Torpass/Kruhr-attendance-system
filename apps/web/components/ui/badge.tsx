@@ -5,6 +5,7 @@ const tones = {
   exito: "bg-exito-fondo text-exito-texto",
   alerta: "bg-alerta-fondo text-alerta-texto",
   error: "bg-error-fondo text-error-texto",
+  neutro: "bg-hueso text-gris",
 } as const;
 
 export function Badge({

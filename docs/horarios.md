@@ -63,3 +63,32 @@ contracts       + schedule_id? → work_schedules   (null = regla general)
 ```
 
 La API valida la política completa con `validatePolicy` de core: al crear, y al editar después de combinar los cambios con lo guardado.
+
+## 6. Control de horario (horario contra marcajes)
+
+**Operación → Control de horario** compara, por colaborador y día, la jornada programada de su horario con sus marcajes. Lo calcula `compareAttendance` en [`attendance.ts`](../packages/core/src/attendance.ts) y lo expone `GET /companies/:id/periods/attendance` (con los mismos parámetros que Períodos).
+
+Se inspira en el análisis de asistencia de Binaural para Cadipa (`binaural_attendance_analysis`), que compara cada franja del calendario con el marcaje más cercano y clasifica el resultado. Hay tres diferencias:
+- No genera entradas de trabajo.
+- Los ajustes se hacen corrigiendo el turno, con motivo.
+- Usa una sola tolerancia de 10 min (`PUNCTUALITY_TOLERANCE_MINUTES`) en lugar de una para la empresa y otra para el colaborador.
+
+**Cómo se arma cada día**
+- **Día de trabajo:** cada turno se asigna al día de su jornada (`workdayOf`). Quien entra a las 00:10 a un turno de 22:00 cuenta para la noche anterior.
+- **Varios turnos el mismo día:** se juntan. Cuentan la primera entrada, la última salida y los minutos sumados.
+- **Horas programadas:** la jornada del horario menos el descanso no pagado, si aplica. Las horas trabajadas son las pagadas por el motor, también sin descanso.
+- **Qué días no aparecen:** los libres sin marcajes y los futuros sin marcajes.
+
+| Estado | Cuándo |
+| --- | --- |
+| A tiempo | Llegó y salió dentro de la tolerancia |
+| Llegó tarde / Salió antes | Pasó la tolerancia al entrar o al salir |
+| Incompleto | Llegó tarde **y** salió antes |
+| Extendido | Trabajó más de lo programado (pasada la tolerancia) |
+| Ausente | Tenía jornada, ya terminó y no marcó |
+| Pendiente | Su jornada de hoy aún no termina y no ha marcado |
+| Sin salida | Marcó entrada y no salida |
+| Día libre trabajado | Marcó en un día libre de su horario |
+| Sin horario | Marcó, pero su contrato no tiene horario con jornada fija: no hay contra qué comparar |
+
+Al hacer clic en un colaborador se abre el panel de sus turnos del período para corregirlos con motivo. Un día con algún turno corregido muestra "Corregido".

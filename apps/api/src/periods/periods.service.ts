@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
+  addDays,
   alertWindow,
+  compareAttendance,
+  DAY_STATUSES,
   periodFor,
   periodToCsv,
   summarizePeriod,
@@ -61,6 +64,50 @@ export class PeriodsService {
       alerts: rows.filter((row) => row.overtimeAlert).length,
       openShifts: rows.reduce((sum, row) => sum + row.openShifts, 0),
     };
+  }
+
+  /**
+   * Horario contra marcajes, por colaborador y día (ver `compareAttendance` en core).
+   * Carga un día antes y uno después para las jornadas nocturnas que cruzan la medianoche.
+   * Lista a los activos y a los inactivos que marcaron en el período.
+   */
+  async attendance(companyId: string, period: Period) {
+    const window = {
+      from: addDays(period.from, -1),
+      to: addDays(period.to, 1),
+    };
+    const [employees, shifts, policies] = await Promise.all([
+      this.employees.list(companyId),
+      this.shifts.listForCompany(companyId, instantRange(window)),
+      this.schedules.policiesFor(companyId, window),
+    ]);
+
+    const byEmployee = new Map<string, typeof shifts>();
+    for (const shift of shifts) {
+      byEmployee.set(shift.employeeId, [
+        ...(byEmployee.get(shift.employeeId) ?? []),
+        shift,
+      ]);
+    }
+
+    const days = employees.flatMap(({ id, cedula, name, active }) =>
+      compareAttendance(byEmployee.get(id) ?? [], period, policies(id))
+        .filter((day) => active || day.shifts.length > 0)
+        .map(({ shifts: dayShifts, ...day }) => ({
+          ...day,
+          employee: { id, cedula, name, active },
+          shiftIds: dayShifts.map((s) => s.id),
+          corrected: dayShifts.some((s) => s.corrections > 0),
+        })),
+    );
+
+    const counts = Object.fromEntries(
+      DAY_STATUSES.map((status) => [
+        status,
+        days.filter((day) => day.status === status).length,
+      ]),
+    );
+    return { period, counts, days };
   }
 
   async csv(companyId: string, period: Period) {
