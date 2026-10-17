@@ -1,5 +1,7 @@
 /** Respuestas de la API (espejo de apps/api). Las fechas llegan como ISO en UTC. */
 
+import type { DayStatus } from "@marcaje/core";
+
 export type Company = {
   id: string;
   name: string;
@@ -220,4 +222,30 @@ export type PayslipDetail = PayslipSummary & {
   lines: PayslipLine[];
   workedMinutes: Record<string, number>;
   inputs: Record<string, number>;
+};
+
+/** Un día de un colaborador frente a su horario (`compareAttendance` en core). */
+export type AttendanceDay = {
+  date: string;
+  status: DayStatus;
+  scheduled: { start: string; end: string } | null;
+  plannedMinutes: number;
+  firstIn: string | null;
+  lastOut: string | null;
+  workedMinutes: number;
+  lateMinutes: number;
+  leftEarlyMinutes: number;
+  arrivedEarlyMinutes: number;
+  stayedLateMinutes: number;
+  differenceMinutes: number;
+  employee: { id: string; name: string; cedula: string; active: boolean };
+  shiftIds: string[];
+  /** Algún turno del día fue corregido por RRHH. */
+  corrected: boolean;
+};
+
+export type AttendanceReport = {
+  period: { from: string; to: string };
+  counts: Record<DayStatus, number>;
+  days: AttendanceDay[];
 };
