@@ -1,4 +1,4 @@
-# Plan del sistema · Marcaje
+# Plan del sistema · KruHr
 
 Basado en [`prueba-tecnica-kru-marcaje.md`](../prueba-tecnica-kru-marcaje.md). La UI sigue el [design system](design-system.md) extraído de la landing de Kru.
 

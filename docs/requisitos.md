@@ -1,4 +1,4 @@
-# Requerimientos funcionales · Marcaje
+# Requerimientos funcionales · KruHr
 
 Alcance, roles, casos de uso, vistas, motor de cálculo y modelo de datos. Complementa a [`plan.md`](plan.md), que cubre el stack y la arquitectura, y se basa en el [enunciado](../prueba-tecnica-kru-marcaje.md).
 
@@ -14,7 +14,7 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 
 ### Odoo 19 (`hr_payroll`, `hr_work_entry`)
 
-| Concepto de Odoo | En Marcaje |
+| Concepto de Odoo | En KruHr |
 | --- | --- |
 | La estructura (`hr.payroll.structure`) agrupa reglas (`hr.salary.rule`) ordenadas por `sequence` | Igual |
 | Cada regla tiene una categoría (`hr.salary.rule.category`). Las categorías forman un árbol y su total sube al padre | **Sin categorías.** Una regla suma otras reglas por su código, y el recibo separa asignaciones de deducciones por el signo |
@@ -43,14 +43,14 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
   | RPE | igual que el IVSS, con 0,5 % |
   | FAOV | 1 % del devengado |
 
-- **El bono nocturno de Binaural paga el 130 % del salario diario.** Parece un error, así que Marcaje usa un recargo del 30 % sobre la hora.
+- **El bono nocturno de Binaural paga el 130 % del salario diario.** Parece un error, así que KruHr usa un recargo del 30 % sobre la hora.
 - **Recibo:** Concepto | Cantidad | Asignaciones | Deducciones, y debajo el neto a pagar. Las líneas positivas son asignaciones y las negativas, deducciones.
 
 > Las tasas son **de referencia**: se toman de Binaural y no constituyen asesoría legal. Cada empresa las ajusta en sus reglas.
 
 ### Asistencias de Cadipa: errores que evitamos
 
-| Cadipa | Marcaje |
+| Cadipa | KruHr |
 | --- | --- |
 | Si falta la salida, la inventa (entrada + 1 min) y no lo indica | El turno queda abierto y aparece como "sin salida". No se calcula hasta que RRHH lo corrige |
 | Corta los días en UTC | Todos los cortes se hacen en `America/Caracas` |

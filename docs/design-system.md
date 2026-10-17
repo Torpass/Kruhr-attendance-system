@@ -1,6 +1,6 @@
-# Design system · Marcaje
+# Design system · KruHr
 
-Extraído de la landing de Kru (`kruhr.com/landing`), que está hecha con Astro + Tailwind y usa nombres de tokens en español (`kru`, `grafito`, `gris`, `hueso`, `borde`, `exito`, `rotulo`). Reutilizamos **los mismos nombres y valores** para que Marcaje se sienta parte del producto Kru.
+Extraído de la landing de Kru (`kruhr.com/landing`), que está hecha con Astro + Tailwind y usa nombres de tokens en español (`kru`, `grafito`, `gris`, `hueso`, `borde`, `exito`, `rotulo`). Reutilizamos **los mismos nombres y valores** para que KruHr se sienta parte del producto Kru.
 
 La landing ya incluye un mockup del propio dashboard de Kru (sidebar + "Expediente del trabajador" + "Prenómina"). Ese mockup es la referencia visual principal para el panel de RRHH.
 
@@ -14,7 +14,7 @@ La landing ya incluye un mockup del propio dashboard de Kru (sidebar + "Expedien
 | Insignia (isotipo) | `https://kruhr.com/kru-insignia.png` (1080×1080) | Favicon, avatar de empresa en el selector, ícono PWA. `rounded-md`. |
 | Favicons | `https://kruhr.com/favicon_{32,64,128}.png` | — |
 
-Guardar copias en `apps/web/public/brand/`.
+Copias en `apps/web/public/brand/` (logo a 600 px de ancho e insignia a 256 px). Los íconos de la PWA, el `apple-icon` y el `favicon.ico` se generan desde la insignia sobre fondo blanco. El logo del producto es el logo de Kru seguido de "Hr" (`components/ui/logo.tsx`).
 
 ## 2. Color
 
@@ -49,9 +49,9 @@ La escala `kru` es exactamente la escala `violet` de Tailwind. `grafito`, `gris`
 | `white` | `#FFFFFF` | Superficie de cards y fondo base |
 
 ### Estado
-La landing solo define `exito`. Completamos `alerta` y `error` con la misma lógica (paso 600 / 100 / 700 de Tailwind) porque Marcaje los necesita.
+La landing solo define `exito`. Completamos `alerta` y `error` con la misma lógica (paso 600 / 100 / 700 de Tailwind) porque KruHr los necesita.
 
-| Token | Hex | Uso en Marcaje |
+| Token | Hex | Uso en KruHr |
 | --- | --- | --- |
 | `exito` | `#16A34A` | Punto "dentro" / en línea |
 | `exito-fondo` | `#DCFCE7` | Badge "Dentro", "Completo" |
@@ -130,7 +130,7 @@ Input*              rounded-lg border border-borde-fuerte bg-white px-3.5 py-2.5
 - Usa los términos del dominio: quincena, prenómina, cédula, colaborador/trabajador, RRHH.
 - Los montos y las horas llevan unidad en el rótulo ("TOTAL DEL PERÍODO · BS.", "HORAS EXTRA · H").
 
-## 7. Mapeo a pantallas de Marcaje
+## 7. Mapeo a pantallas de KruHr
 
 | Pantalla | Patrón de la landing |
 | --- | --- |
