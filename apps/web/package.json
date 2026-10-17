@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_ENV=production next build",
+    "build": "pnpm --filter @marcaje/core build && NODE_ENV=production next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@marcaje/core": "workspace:*",
     "@tanstack/react-query": "^5.104.2",
     "next": "16.3.8",
     "react": "19.3.0",
