@@ -329,6 +329,8 @@ describe('Nómina (integración)', () => {
     });
 
     it('pagar y anular siguen el ciclo de vida', async () => {
+      // Validado todavía no hay PDF.
+      await agents.adminA.get(company(`payslips/${luisSlip}/pdf`)).expect(409);
       await agents.adminA
         .post(company(`payroll-runs/${runId}/pay`))
         .expect(200);
@@ -372,6 +374,51 @@ describe('Nómina (integración)', () => {
 
       const removed = await agents.analystA.delete(`${url}/${id}`).expect(409);
       expect(removed.body.message).toContain('recibos');
+    });
+  });
+
+  describe('recibo en PDF', () => {
+    const isPdf = (body: Buffer) => body.subarray(0, 5).toString() === '%PDF-';
+    const binary = (
+      res: { on: (e: string, cb: (c?: Buffer) => void) => void },
+      cb: (e: null, b: Buffer) => void,
+    ) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c) => c && chunks.push(c));
+      res.on('end', () => cb(null, Buffer.concat(chunks)));
+    };
+
+    it('RRHH descarga el recibo y el lote pagado; el colaborador, solo el suyo', async () => {
+      const one = await agents.adminA
+        .get(company(`payslips/${luisSlip}/pdf`))
+        .buffer(true)
+        .parse(binary)
+        .expect(200)
+        .expect('Content-Type', /application\/pdf/)
+        .expect(
+          'Content-Disposition',
+          /recibo_87654321_2026-10-01_2026-10-15\.pdf/,
+        );
+      expect(isPdf(one.body as Buffer)).toBe(true);
+
+      const all = await agents.analystA
+        .get(company(`payroll-runs/${runId}/pdf`))
+        .buffer(true)
+        .parse(binary)
+        .expect(200);
+      expect(isPdf(all.body as Buffer)).toBe(true);
+
+      const mine = await agents.luis
+        .get(`/api/me/payslips/${luisSlip}/pdf`)
+        .buffer(true)
+        .parse(binary)
+        .expect(200);
+      expect(isPdf(mine.body as Buffer)).toBe(true);
+
+      await agents.ana.get(`/api/me/payslips/${luisSlip}/pdf`).expect(404);
+      await agents.adminB
+        .get(`/api/companies/${ids.norte}/payslips/${luisSlip}/pdf`)
+        .expect(404);
     });
   });
 });

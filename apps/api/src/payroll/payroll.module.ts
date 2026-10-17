@@ -9,6 +9,7 @@ import { ContractsController } from './contracts.controller';
 import { ContractsRepository } from './contracts.repository';
 import { ContractsService } from './contracts.service';
 import { MePayslipsController } from './me-payslips.controller';
+import { PayslipPdfService } from './pdf/payslip-pdf.service';
 import { RunsController } from './runs.controller';
 import { RunsRepository } from './runs.repository';
 import { RunsService } from './runs.service';
@@ -28,6 +29,7 @@ import { RunsService } from './runs.service';
     ContractsService,
     RunsRepository,
     RunsService,
+    PayslipPdfService,
   ],
 })
 export class PayrollModule {}

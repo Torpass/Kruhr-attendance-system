@@ -21,13 +21,18 @@ import {
   type PayslipInputsInput,
   type RunAction,
 } from './payroll.schemas';
+import { pdfFile } from './pdf/pdf-file';
+import { PayslipPdfService } from './pdf/payslip-pdf.service';
 import { RunsService } from './runs.service';
 
 /** Lotes de nómina de una empresa. El acceso a `:companyId` lo valida TenantScopeGuard. */
 @Roles('admin', 'analyst')
 @Controller('companies/:companyId')
 export class RunsController {
-  constructor(private readonly runs: RunsService) {}
+  constructor(
+    private readonly runs: RunsService,
+    private readonly pdfs: PayslipPdfService,
+  ) {}
 
   @Get('payroll-runs')
   async list(@Param('companyId') companyId: string) {
@@ -60,6 +65,24 @@ export class RunsController {
     @Param('action', new ZodValidationPipe(runActionSchema)) action: RunAction,
   ) {
     return { run: await this.runs[action](companyId, runId) };
+  }
+
+  /** Todos los recibos de un lote pagado en un PDF, uno por página. */
+  @Get('payroll-runs/:runId/pdf')
+  async runPdf(
+    @Param('companyId') companyId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
+  ) {
+    return pdfFile(await this.pdfs.run(companyId, runId));
+  }
+
+  /** Recibo de pago en PDF (solo de lotes pagados). */
+  @Get('payslips/:payslipId/pdf')
+  async payslipPdf(
+    @Param('companyId') companyId: string,
+    @Param('payslipId', ParseUUIDPipe) payslipId: string,
+  ) {
+    return pdfFile(await this.pdfs.payslip({ companyId }, payslipId));
   }
 
   @Get('payslips/:payslipId')
