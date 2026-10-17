@@ -120,7 +120,7 @@ export default function PeriodosPage() {
             <Stat label="Turnos abiertos" value={data.openShifts} tone={data.openShifts ? "alerta" : "neutral"} />
           </div>
 
-          <Card className="p-0 sm:p-0">
+          <Card flush>
             {data.rows.length === 0 ? (
               <div className="p-4"><EmptyState>No hay colaboradores en este período.</EmptyState></div>
             ) : (

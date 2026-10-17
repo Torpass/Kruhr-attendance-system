@@ -55,7 +55,7 @@ export default function ColaboradoresPage() {
         <Button onClick={() => { create.reset(); setCreating(true); }}>Nuevo colaborador</Button>
       </div>
 
-      <Card className="p-0 sm:p-0">
+      <Card flush>
         <div className="border-b border-borde p-4">
           <label className="sr-only" htmlFor="filter">Buscar</label>
           <input

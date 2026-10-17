@@ -198,7 +198,7 @@ export default function RunPage() {
         <Stat label="Neto a pagar" value={formatMoney(sum("net"))} tone="marca" />
       </div>
 
-      <Card className="p-0 sm:p-0">
+      <Card flush>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[36rem] text-sm">
             <thead>

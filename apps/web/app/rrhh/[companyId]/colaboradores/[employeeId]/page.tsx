@@ -177,7 +177,7 @@ export default function EmployeePage() {
 
       <ContractsCard companyId={companyId} employeeId={employeeId} />
 
-      <Card className="p-0 sm:p-0">
+      <Card flush>
         <div className="flex flex-wrap items-end gap-3 border-b border-borde p-4">
           <h2 className="mr-auto font-semibold">Turnos</h2>
           <label className="flex flex-col gap-1">
