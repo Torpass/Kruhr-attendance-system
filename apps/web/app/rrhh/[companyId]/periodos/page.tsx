@@ -4,13 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { ShiftForm } from "@/components/shift-form";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, EmptyState, Stat } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icons";
 import { api, errorMessage } from "@/lib/api";
 import { RUN_STATE } from "@/lib/money";
-import { addDays, formatDay, formatHoursValue, todayInCaracas } from "@/lib/time";
-import type { PayrollRun, PeriodRow, PeriodSummary } from "@/lib/types";
+import { addDays, formatDay, formatHours, formatHoursValue, formatTime, todayInCaracas } from "@/lib/time";
+import type { PayrollRun, PeriodRow, PeriodSummary, Shift } from "@/lib/types";
 
 type Kind = "week" | "half" | "range";
 
@@ -57,7 +60,6 @@ export default function PeriodosPage() {
   const runs = useQuery({
     queryKey: ["companies", companyId, "payroll-runs"],
     queryFn: () => api<{ runs: PayrollRun[] }>(`/companies/${companyId}/payroll-runs`).then((r) => r.runs),
-    enabled: kind !== "range",
   });
 
   const data = summary.data;
@@ -184,23 +186,28 @@ export default function PeriodosPage() {
         <PeriodBody
           companyId={companyId}
           data={data}
-          payroll={kind === "range" ? null : { runs: runs.data, kind: apiKind, date }}
+          runs={runs.data ?? []}
+          payroll={kind === "range" ? null : { kind: apiKind, date }}
         />
       )}
     </div>
   );
 }
 
+type Panel = { employee: PeriodRow["employee"]; focus: "open" | null };
+
 function PeriodBody({
   companyId,
   data,
+  runs,
   payroll,
 }: {
   companyId: string;
   data: PeriodSummary;
-  payroll: { runs: PayrollRun[] | undefined; kind: string; date: string } | null;
+  runs: PayrollRun[];
+  payroll: { kind: string; date: string } | null;
 }) {
-  const employeeHref = (id: string) => `/rrhh/${companyId}/colaboradores/${id}`;
+  const [panel, setPanel] = useState<Panel | null>(null);
   const sum = (pick: (row: PeriodRow) => number) => data.rows.reduce((t, r) => t + pick(r), 0);
   const withHours = data.rows.filter(hasHours);
   const rows = [...withHours, ...data.rows.filter((r) => !hasHours(r))];
@@ -230,7 +237,7 @@ function PeriodBody({
       })),
   ]);
 
-  const run = payroll?.runs?.find(
+  const run = runs.find(
     (r) => r.dateFrom === data.period.from && r.dateTo === data.period.to && r.state !== "cancelled",
   );
 
@@ -246,9 +253,10 @@ function PeriodBody({
           <ul className="divide-y divide-borde">
             {pending.map((item) => (
               <li key={item.key}>
-                <Link
-                  href={employeeHref(item.row.employee.id)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-hueso/60"
+                <button
+                  type="button"
+                  onClick={() => setPanel({ employee: item.row.employee, focus: item.tone === "error" ? "open" : null })}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-hueso/60"
                 >
                   <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full sm:hidden ${item.tone === "error" ? "bg-error" : "bg-alerta"}`} />
                   <span className="hidden w-28 shrink-0 sm:flex">
@@ -259,7 +267,7 @@ function PeriodBody({
                     <span className="text-gris"> · {item.text}</span>
                   </span>
                   <span className="font-semibold text-kru-700">{item.action} →</span>
-                </Link>
+                </button>
               </li>
             ))}
           </ul>
@@ -328,9 +336,13 @@ function PeriodBody({
                     <tr key={row.employee.id} className={hasHours(row) ? "" : "text-gris"}>
                       <td className="px-4 py-3">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <Link href={`/rrhh/${companyId}/colaboradores/${row.employee.id}`} className="font-semibold hover:text-kru-700">
+                          <button
+                            type="button"
+                            onClick={() => setPanel({ employee: row.employee, focus: null })}
+                            className="font-semibold hover:text-kru-700"
+                          >
                             {row.employee.name}
-                          </Link>
+                          </button>
                           {row.openShifts > 0 && <Badge tone="error">{row.openShifts} sin salida</Badge>}
                           {alerts > 0 && <Badge tone="alerta">Extra &gt; 10 h</Badge>}
                           {!row.employee.active && <Badge>Inactivo</Badge>}
@@ -359,6 +371,152 @@ function PeriodBody({
           </div>
         )}
       </Card>
+
+      <Dialog
+        open={panel !== null}
+        onClose={() => setPanel(null)}
+        size="side"
+        title={panel?.employee.name ?? ""}
+      >
+        {panel && (
+          <ShiftsPanel
+            key={panel.employee.id}
+            companyId={companyId}
+            employee={panel.employee}
+            period={data.period}
+            focus={panel.focus}
+            runs={runs}
+          />
+        )}
+      </Dialog>
     </>
+  );
+}
+
+/** Días bloqueados: los de un lote validado o pagado (la API rechaza corregirlos). */
+function lockingRun(runs: PayrollRun[], date: string) {
+  return runs.find((r) => (r.state === "validated" || r.state === "paid") && r.dateFrom <= date && date <= r.dateTo);
+}
+
+/**
+ * Turnos del colaborador en el período, con corrección y alta de turnos olvidados.
+ * `editing`: id del turno, "new" o null; undefined mientras no se eligió nada (con `focus`
+ * "open" se abre directo el turno sin salida).
+ */
+function ShiftsPanel({
+  companyId,
+  employee,
+  period,
+  focus,
+  runs,
+}: {
+  companyId: string;
+  employee: PeriodRow["employee"];
+  period: { from: string; to: string };
+  focus: "open" | null;
+  runs: PayrollRun[];
+}) {
+  const [editing, setEditing] = useState<string | null | undefined>(undefined);
+  const shifts = useQuery({
+    queryKey: ["companies", companyId, "shifts", employee.id, period.from, period.to],
+    queryFn: () =>
+      api<{ shifts: Shift[] }>(
+        `/companies/${companyId}/shifts?from=${period.from}&to=${period.to}&employeeId=${employee.id}`,
+      ).then((r) => r.shifts),
+  });
+
+  const autoOpen = focus === "open" ? shifts.data?.find((s) => !s.clockOut && !lockingRun(runs, s.date)) : undefined;
+  const current = editing === undefined ? (autoOpen?.id ?? null) : editing;
+  const shift = shifts.data?.find((s) => s.id === current) ?? null;
+  const today = todayInCaracas();
+  const newShiftDay = today >= period.from && today <= period.to ? today : period.from;
+  const periodLock = lockingRun(runs, newShiftDay);
+
+  if (current !== null && (shift || current === "new")) {
+    return (
+      <div className="flex flex-col gap-4">
+        <button type="button" onClick={() => setEditing(null)} className="self-start text-sm font-semibold text-kru-700 hover:text-kru-800">
+          ← Turnos del período
+        </button>
+        <h3 className="font-semibold">
+          {shift ? `Corregir turno del ${formatDay(shift.date)}` : "Agregar turno olvidado"}
+        </h3>
+        <ShiftForm
+          companyId={companyId}
+          employeeId={employee.id}
+          shift={shift}
+          defaultDate={newShiftDay}
+          onDone={() => setEditing(null)}
+          onCancel={() => setEditing(null)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="-mt-2 flex items-center justify-between gap-3 text-[13px] text-gris">
+        <span className="tabular-nums">C.I. {employee.cedula} · {formatDay(period.from)} → {formatDay(period.to)}</span>
+        <Link href={`/rrhh/${companyId}/colaboradores/${employee.id}`} className="font-semibold text-kru-700 hover:text-kru-800">
+          Ver ficha →
+        </Link>
+      </div>
+
+      {shifts.isError ? (
+        <EmptyState>{errorMessage(shifts.error)}</EmptyState>
+      ) : !shifts.data ? (
+        <p className="text-sm text-gris">Cargando…</p>
+      ) : shifts.data.length === 0 ? (
+        <EmptyState>No tiene turnos en este período.</EmptyState>
+      ) : (
+        <ul className="divide-y divide-borde rounded-xl border border-borde">
+          {shifts.data.map((s) => {
+            const lock = lockingRun(runs, s.date);
+            return (
+              <li key={s.id} className="flex items-center gap-3 px-3.5 py-3 text-sm">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold first-letter:uppercase">{formatDay(s.date)}</span>
+                  <span className="block text-[13px] text-gris tabular-nums">
+                    {formatTime(s.clockIn)} → {s.clockOut ? formatTime(s.clockOut) : "sin salida"}
+                    {s.minutes && ` · ${formatHours(s.minutes.worked)} h`}
+                    {s.minutes && s.minutes.overtimeDay + s.minutes.overtimeNight > 0 &&
+                      ` (${formatHours(s.minutes.overtimeDay + s.minutes.overtimeNight)} extra)`}
+                  </span>
+                  <span className="mt-1 flex flex-wrap gap-1">
+                    {!s.clockOut && <Badge tone="error">Sin salida</Badge>}
+                    {(s.corrections ?? 0) > 0 && <Badge>Corregido</Badge>}
+                  </span>
+                </span>
+                {lock ? (
+                  <span className="text-right text-[12px] text-gris" title={`Lote ${lock.name}`}>
+                    En nómina {RUN_STATE[lock.state].label.toLowerCase()}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditing(s.id)}
+                    className="font-semibold text-kru-700 hover:text-kru-800"
+                  >
+                    Corregir
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {periodLock ? (
+        <p className="rounded-lg bg-hueso px-3.5 py-2.5 text-[13px] text-gris">
+          Este período está en el lote {periodLock.name} ({RUN_STATE[periodLock.state].label.toLowerCase()}); sus turnos
+          ya no se pueden corregir.
+        </p>
+      ) : (
+        <Button variant="secondary" onClick={() => setEditing("new")} className="self-start">
+          Agregar turno olvidado
+        </Button>
+      )}
+      <p className="text-[12px] text-gris">Cada cambio pide un motivo y queda en el historial del turno.</p>
+    </div>
   );
 }
