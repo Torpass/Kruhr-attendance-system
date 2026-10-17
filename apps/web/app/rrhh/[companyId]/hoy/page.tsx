@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, Card, EmptyState, Stat } from "@/components/ui/card";
+import { Avatar, Card, EmptyState } from "@/components/ui/card";
 import { api, errorMessage } from "@/lib/api";
 import { caracasDate, formatDay, formatTime } from "@/lib/time";
 import type { CompanyToday } from "@/lib/types";
@@ -60,21 +60,14 @@ export default function HoyPage() {
   if (today.isError) return <EmptyState>{errorMessage(today.error)}</EmptyState>;
   if (!today.data) return <p className="text-sm text-gris">Cargando…</p>;
 
-  const { counts, inside, missingClockOut, notClockedIn, finished, date } = today.data;
+  const { inside, missingClockOut, notClockedIn, finished, date } = today.data;
   const employeeHref = (id: string) => `/rrhh/${companyId}/colaboradores/${id}`;
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-[-0.025em]">Hoy</h1>
+        <h1 className="text-2xl font-bold tracking-[-0.025em]">Asistencia de hoy</h1>
         <p className="mt-1 text-sm first-letter:uppercase text-gris">{formatDay(date)} · se actualiza cada minuto</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Dentro ahora" value={counts.inside} tone="marca" />
-        <Stat label="No han marcado" value={counts.notClockedIn} />
-        <Stat label="Sin salida" value={counts.missingClockOut} tone={counts.missingClockOut > 0 ? "alerta" : "neutral"} />
-        <Stat label="Colaboradores activos" value={counts.active} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

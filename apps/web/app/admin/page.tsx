@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Logo } from "@/components/ui/logo";
 import { api, errorMessage } from "@/lib/api";
-import { useLogout, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 import type { AdminGroup } from "@/lib/types";
 
 type Creating = { mode: "group" } | { mode: "company"; group: AdminGroup } | null;
@@ -25,7 +24,6 @@ function formBody(form: HTMLFormElement) {
 export default function AdminPage() {
   const queryClient = useQueryClient();
   const { data: user } = useSession();
-  const logout = useLogout();
   const [creating, setCreating] = useState<Creating>(null);
 
   const groups = useQuery({
@@ -64,17 +62,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-borde bg-white">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <Logo />
-          <Badge>Superusuario</Badge>
-          <Button variant="secondary" className="ml-auto" onClick={() => void logout()}>
-            Salir
-          </Button>
-        </div>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-6">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-[-0.025em]">Empresas</h1>
@@ -115,7 +103,7 @@ export default function AdminPage() {
                       </span>
                     </span>
                     {!company.active && <Badge tone="error">Inactiva</Badge>}
-                    <Link href={`/rrhh/${company.id}/hoy`} className="font-semibold text-kru-700 hover:text-kru-800">
+                    <Link href={`/rrhh/${company.id}`} className="font-semibold text-kru-700 hover:text-kru-800">
                       Abrir
                     </Link>
                     <Link href={`/rrhh/${company.id}/equipo`} className="font-semibold text-kru-700 hover:text-kru-800">
@@ -140,7 +128,7 @@ export default function AdminPage() {
             {errorMessage(toggle.error)}
           </p>
         )}
-      </main>
+      </div>
 
       <Dialog
         open={creating !== null}
