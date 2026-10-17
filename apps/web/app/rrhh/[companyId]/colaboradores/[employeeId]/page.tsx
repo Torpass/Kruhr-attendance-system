@@ -3,8 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { ContractsCard } from "@/components/contracts-card";
+import { ShiftForm } from "@/components/shift-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, Card, EmptyState } from "@/components/ui/card";
@@ -14,15 +15,12 @@ import { api, errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import {
   addDays,
-  caracasDate,
   formatDay,
   formatHours,
   formatTime,
-  fromCaracasInput,
-  toCaracasInput,
   todayInCaracas,
 } from "@/lib/time";
-import type { Correction, Employee, Shift } from "@/lib/types";
+import type { Employee, Shift } from "@/lib/types";
 
 type Editing = { mode: "correct"; shift: Shift } | { mode: "create" } | null;
 
@@ -31,36 +29,6 @@ function ErrorBox({ error }: { error: unknown }) {
     <p role="alert" className="rounded-lg bg-error-fondo px-3.5 py-2.5 text-sm text-error-texto">
       {errorMessage(error)}
     </p>
-  );
-}
-
-function CorrectionHistory({ companyId, shiftId }: { companyId: string; shiftId: string }) {
-  const history = useQuery({
-    queryKey: ["companies", companyId, "corrections", shiftId],
-    queryFn: () =>
-      api<{ corrections: Correction[] }>(`/companies/${companyId}/shifts/${shiftId}/corrections`).then(
-        (r) => r.corrections,
-      ),
-  });
-  if (!history.data?.length) return null;
-  const range = (s: { clockIn: string; clockOut: string | null }) =>
-    `${formatTime(s.clockIn)}–${s.clockOut ? formatTime(s.clockOut) : "…"}`;
-  return (
-    <div className="mt-5 border-t border-borde pt-4">
-      <p className="rotulo text-gris">Historial</p>
-      <ul className="mt-2 flex flex-col gap-2 text-[13px]">
-        {history.data.map((c) => (
-          <li key={c.id} className="rounded-xl border border-borde bg-hueso/60 p-3">
-            <p className="tabular-nums">
-              {c.before ? range(c.before) : "Creado"} → <span className="font-semibold">{range(c.after)}</span>
-            </p>
-            <p className="mt-1 text-gris">
-              “{c.reason}” · {c.correctedBy.name}, {formatDay(caracasDate(c.createdAt))}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -91,37 +59,6 @@ export default function EmployeePage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["companies", companyId] });
 
-  const save = useMutation({
-    mutationFn: async (form: FormData) => {
-      const clockIn = String(form.get("clockIn") ?? "");
-      const clockOut = String(form.get("clockOut") ?? "");
-      const reason = String(form.get("reason") ?? "");
-      if (editing?.mode === "correct") {
-        return api(`/companies/${companyId}/shifts/${editing.shift.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            clockIn: fromCaracasInput(clockIn),
-            ...(clockOut && { clockOut: fromCaracasInput(clockOut) }),
-            reason,
-          }),
-        });
-      }
-      return api(`/companies/${companyId}/shifts`, {
-        method: "POST",
-        body: JSON.stringify({
-          employeeId,
-          clockIn: fromCaracasInput(clockIn),
-          clockOut: fromCaracasInput(clockOut),
-          reason,
-        }),
-      });
-    },
-    onSuccess: () => {
-      setEditing(null);
-      void invalidate();
-    },
-  });
-
   const update = useMutation({
     mutationFn: (body: { active?: boolean; pin?: string }) =>
       api(`/companies/${companyId}/employees/${employeeId}`, { method: "PATCH", body: JSON.stringify(body) }),
@@ -131,15 +68,7 @@ export default function EmployeePage() {
     },
   });
 
-  function openEditor(next: Editing) {
-    save.reset();
-    setEditing(next);
-  }
-
-  function onSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    save.mutate(new FormData(event.currentTarget));
-  }
+  const openEditor = (next: Editing) => setEditing(next);
 
   if (employee.isError) return <EmptyState>{errorMessage(employee.error)}</EmptyState>;
   if (!employee.data) return <p className="text-sm text-gris">Cargando…</p>;
@@ -257,42 +186,13 @@ export default function EmployeePage() {
         title={editingShift ? "Corregir turno" : "Agregar turno"}
       >
         {editing && (
-          <form key={editingShift?.id ?? "new"} onSubmit={onSave} className="flex flex-col gap-4">
-            <p className="text-[13px] text-gris">Horas de Caracas. El motivo queda en el historial.</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                label="Entrada"
-                name="clockIn"
-                type="datetime-local"
-                defaultValue={editingShift ? toCaracasInput(editingShift.clockIn) : undefined}
-                required
-              />
-              <Input
-                label="Salida"
-                name="clockOut"
-                type="datetime-local"
-                defaultValue={editingShift?.clockOut ? toCaracasInput(editingShift.clockOut) : undefined}
-                required={!editingShift || editingShift.clockOut !== null}
-              />
-            </div>
-            <label className="flex flex-col gap-1.5">
-              <span className="rotulo text-gris">Motivo (obligatorio)</span>
-              <textarea
-                name="reason"
-                required
-                minLength={5}
-                maxLength={500}
-                rows={3}
-                className="rounded-lg border border-borde-fuerte px-3.5 py-2.5 text-sm outline-none focus:border-kru-500 focus:ring-4 focus:ring-kru-100"
-              />
-            </label>
-            {save.isError && <ErrorBox error={save.error} />}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button>
-              <Button type="submit" disabled={save.isPending}>{save.isPending ? "Guardando…" : "Guardar"}</Button>
-            </div>
-            {editingShift && <CorrectionHistory companyId={companyId} shiftId={editingShift.id} />}
-          </form>
+          <ShiftForm
+            companyId={companyId}
+            employeeId={employeeId}
+            shift={editingShift}
+            onDone={() => setEditing(null)}
+            onCancel={() => setEditing(null)}
+          />
         )}
       </Dialog>
 
