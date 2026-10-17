@@ -46,6 +46,7 @@ function navigation(companyId: string | undefined, role: string | undefined): Gr
   if (companyId) {
     settings.push(
       { href: `${base}/configuracion/estructuras`, label: "Estructuras salariales", icon: "list" },
+      { href: `${base}/configuracion/horarios`, label: "Horarios", icon: "hourglass" },
       { href: `${base}/configuracion/parametros`, label: "Parámetros legales", icon: "sliders" },
       { href: `${base}/configuracion/conceptos`, label: "Conceptos manuales", icon: "edit" },
     );

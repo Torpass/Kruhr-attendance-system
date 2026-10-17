@@ -158,6 +158,28 @@ export type Contract = {
   dateStart: string;
   dateEnd: string | null;
   structure: { id: string; name: string };
+  /** `null`: sus turnos se calculan con la regla general (la del enunciado). */
+  schedule: { id: string; name: string } | null;
+};
+
+/** Jornada de un día en hora local `HH:MM`; si `end` ≤ `start`, termina al día siguiente. */
+export type ScheduleDay = { start: string; end: string };
+
+/** Horario del grupo con su política de cálculo (`WorkPolicy` en core). */
+export type WorkSchedule = {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+  overtimeMode: "duration" | "schedule";
+  ordinaryMinutes: number;
+  /** Lunes (0) a domingo (6); `null` es día libre. */
+  days: (ScheduleDay | null)[] | null;
+  breakMinutes: number;
+  breakAfterMinutes: number;
+  nightStart: string;
+  nightEnd: string;
+  weeklyOvertimeAlertMinutes: number;
 };
 
 export type PayrollRun = {
