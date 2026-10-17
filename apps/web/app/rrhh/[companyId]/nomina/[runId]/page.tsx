@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { DownloadPdf } from "@/components/download-pdf";
 import { PayslipLines } from "@/components/payslip-lines";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,9 +84,14 @@ function PayslipDialog({
         <p className="text-sm text-gris">Cargando…</p>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-[13px] text-gris tabular-nums">
-            C.I. {data.employee.cedula} · Salario mensual Bs. {formatMoney(data.wage)}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-gris tabular-nums">
+              C.I. {data.employee.cedula} · Salario mensual Bs. {formatMoney(data.wage)}
+            </p>
+            {data.run.state === "paid" && (
+              <DownloadPdf href={`/api/companies/${companyId}/payslips/${payslipId}/pdf`}>Recibo en PDF</DownloadPdf>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {Object.entries(HOUR_LABELS).map(([code, label]) => (
               <div key={code} className="rounded-xl border border-borde bg-hueso/60 p-2.5">
@@ -172,6 +178,9 @@ export default function RunPage() {
             {formatDay(data.dateFrom)} → {formatDay(data.dateTo)} · {data.structure.name}
           </p>
         </div>
+        {data.state === "paid" && (
+          <DownloadPdf href={`/api/companies/${companyId}/payroll-runs/${runId}/pdf`}>Recibos en PDF</DownloadPdf>
+        )}
         {ACTIONS[data.state].map(({ action, label, primary, confirm }) => (
           <Button
             key={action}

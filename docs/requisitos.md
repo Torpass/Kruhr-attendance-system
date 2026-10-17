@@ -232,6 +232,10 @@ payslip_lines             payslip_id, code, name, sequence, quantity, amount, ra
 - **Validar:** exige que los colaboradores del lote no tengan turnos abiertos en el período, porque esas horas no se pagarían. Una vez validado, el lote queda fijo y **bloquea** las correcciones y los turnos manuales en su rango. Lo hace `ShiftsRepository`, dentro de la transacción de la corrección.
 - **Pagar:** de `validated` a `paid`. **Anular:** desde `computed` o `validated`. Un lote anulado deja de bloquear y ya no cuenta para los solapes.
 - **El colaborador** ve sus recibos validados o pagados en `/marcar/recibos`, solo con las líneas visibles.
+- **Recibo en PDF:** cuando el lote está **pagado**, RRHH descarga el recibo de cada colaborador o todo el lote en un PDF (una página por recibo), y el colaborador descarga el suyo desde `/marcar/recibos`.
+  - Lo arma la API al pedirlo (`pdfkit` con Inter y el logo de Kru), con los datos guardados del recibo. No se almacena el archivo, y siempre coincide con el recibo.
+  - Rutas: `GET /companies/:id/payslips/:payslipId/pdf`, `GET /companies/:id/payroll-runs/:runId/pdf` y `GET /me/payslips/:payslipId/pdf`.
+  - Antes de pagar, la API responde 409.
 
 Las líneas copian el código y el nombre de la regla. Así el recibo histórico no cambia si después se edita la regla, y no hace falta el versionado de reglas que tiene Binaural.
 
