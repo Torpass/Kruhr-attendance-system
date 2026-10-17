@@ -416,6 +416,17 @@ describe('Nómina (integración)', () => {
       expect(isPdf(mine.body as Buffer)).toBe(true);
 
       await agents.ana.get(`/api/me/payslips/${luisSlip}/pdf`).expect(404);
+
+      // La ficha del colaborador lista sus recibos para RRHH.
+      const list = await agents.analystA
+        .get(company(`employees/${ids.luis}/payslips`))
+        .expect(200);
+      expect(list.body.payslips).toMatchObject([
+        { id: luisSlip, run: { id: runId, state: 'paid' } },
+      ]);
+      await agents.adminB
+        .get(`/api/companies/${ids.norte}/employees/${ids.luis}/payslips`)
+        .expect(404);
       await agents.adminB
         .get(`/api/companies/${ids.norte}/payslips/${luisSlip}/pdf`)
         .expect(404);

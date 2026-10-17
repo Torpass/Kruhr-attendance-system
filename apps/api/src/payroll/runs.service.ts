@@ -67,6 +67,13 @@ export class RunsService {
     return { ...run, payslips: await this.runs.payslips(runId) };
   }
 
+  employeePayslips(companyId: string, employeeId: string) {
+    return this.runs.listForEmployee(employeeId, {
+      companyId,
+      states: ['computed', 'validated', 'paid'],
+    });
+  }
+
   async getPayslip(companyId: string, payslipId: string) {
     const slip = await this.runs.findPayslip({ companyId }, payslipId);
     if (!slip) throw new NotFoundException('Recibo no encontrado');

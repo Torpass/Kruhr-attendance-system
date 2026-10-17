@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ContractsCard } from "@/components/contracts-card";
+import { EmployeePayslipsCard } from "@/components/employee-payslips-card";
 import { ShiftForm } from "@/components/shift-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,8 @@ export default function EmployeePage() {
       </Card>
 
       <ContractsCard companyId={companyId} employeeId={employeeId} />
+
+      <EmployeePayslipsCard companyId={companyId} employeeId={employeeId} />
 
       <Card flush>
         <div className="flex flex-wrap items-end gap-3 border-b border-borde p-4">

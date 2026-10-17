@@ -67,6 +67,17 @@ export class RunsController {
     return { run: await this.runs[action](companyId, runId) };
   }
 
+  /** Recibos de un colaborador en lotes vigentes (calculados, validados o pagados). */
+  @Get('employees/:employeeId/payslips')
+  async employeePayslips(
+    @Param('companyId') companyId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+  ) {
+    return {
+      payslips: await this.runs.employeePayslips(companyId, employeeId),
+    };
+  }
+
   /** Todos los recibos de un lote pagado en un PDF, uno por página. */
   @Get('payroll-runs/:runId/pdf')
   async runPdf(
