@@ -18,8 +18,9 @@ const ROLE_LABEL = { superadmin: "Superusuario", admin: "Administrador", analyst
 type Editing = { mode: "create" } | { mode: "edit"; member: StaffMember } | null;
 
 /**
- * Equipo de gestión del grupo de la empresa actual. El admin da de alta y edita analistas con
- * las empresas que gestiona; el superusuario, además, administradores. La API aplica las reglas.
+ * Equipo de gestión del grupo de la empresa actual. El admin da de alta y edita administradores y
+ * analistas con las empresas que gestiona (no a un admin con empresas fuera de su alcance); el
+ * superusuario, a todos. La API aplica las reglas.
  */
 export default function EquipoPage() {
   const { companyId } = useParams<{ companyId: string }>();
@@ -32,6 +33,7 @@ export default function EquipoPage() {
   const groupCompanies = companies?.filter((c) => c.group.id === group?.id) ?? [];
   const companyName = (id: string) => groupCompanies.find((c) => c.id === id)?.name;
   const isSuperadmin = user?.role === "superadmin";
+  const canChooseRole = isSuperadmin || user?.role === "admin";
 
   const staff = useQuery({
     queryKey: ["groups", group?.id, "staff"],
@@ -57,7 +59,6 @@ export default function EquipoPage() {
       name: form.get("name"),
       companyIds: form.getAll("companyIds"),
     };
-    // Solo el superusuario elige el rol; el admin siempre da de alta analistas.
     if (form.get("role")) body.role = form.get("role");
     else if (editing?.mode === "create") body.role = "analyst";
     if (form.get("password")) body.password = form.get("password");
@@ -68,8 +69,12 @@ export default function EquipoPage() {
     save.mutate(body);
   }
 
+  /** El admin edita analistas y admins cuyas empresas gestiona él también (la API lo exige). */
+  const inMyScope = (member: StaffMember) => member.companyIds.every((id) => user?.companyIds.includes(id));
   const canEdit = (member: StaffMember) =>
-    isSuperadmin || (member.role === "analyst" && user?.role === "admin") || member.id === user?.id;
+    isSuperadmin ||
+    member.id === user?.id ||
+    (user?.role === "admin" && (member.role === "analyst" || (member.role === "admin" && inMyScope(member))));
   const member = editing?.mode === "edit" ? editing.member : null;
   const isSelf = member?.id === user?.id;
 
@@ -84,7 +89,7 @@ export default function EquipoPage() {
           </p>
         </div>
         <Button onClick={() => { save.reset(); setEditing({ mode: "create" }); }} disabled={!group}>
-          {isSuperadmin ? "Nuevo usuario" : "Nuevo analista"}
+          Nuevo usuario
         </Button>
       </div>
 
@@ -131,7 +136,7 @@ export default function EquipoPage() {
       <Dialog
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title={member ? `Editar a ${member.name}` : isSuperadmin ? "Nuevo usuario" : "Nuevo analista"}
+        title={member ? `Editar a ${member.name}` : "Nuevo usuario"}
       >
         {editing && (
           <form key={member?.id ?? "new"} onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -145,7 +150,7 @@ export default function EquipoPage() {
               minLength={10}
               required={!member}
             />
-            {isSuperadmin && !isSelf && (
+            {canChooseRole && !isSelf && (
               <label className="flex flex-col gap-1.5">
                 <span className="rotulo text-gris">Rol</span>
                 <select

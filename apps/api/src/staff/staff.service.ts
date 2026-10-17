@@ -18,16 +18,31 @@ import { StaffRepository } from './staff.repository';
 type Actor = Extract<SessionUser, { kind: 'staff' }>;
 
 /**
- * Quién gestiona a quién: el superadmin, a admins y analistas de cualquier grupo;
- * el admin, solo a analistas, y solo con las empresas que él mismo gestiona.
+ * Quién gestiona a quién: el superadmin, a admins y analistas de cualquier grupo; el admin, a
+ * admins y analistas de su grupo, solo con las empresas que él mismo gestiona. Nadie fuera del
+ * superadmin crea o toca superadmins (no es un rol asignable).
  */
 function assertCanManage(actor: Actor, role: StaffRole) {
   const allowed =
     actor.role === 'superadmin' ||
-    (actor.role === 'admin' && role === 'analyst');
+    (actor.role === 'admin' && (role === 'admin' || role === 'analyst'));
   if (!allowed) {
+    throw new ForbiddenException('No puedes gestionar usuarios con ese rol');
+  }
+}
+
+/**
+ * Un admin no edita a otro admin que gestiona empresas que él no gestiona: desactivarlo o
+ * cambiarle el rol o la clave afectaría a esas empresas.
+ */
+function assertAdminInScope(
+  actor: Actor,
+  target: { role: StaffRole; companyIds: string[] },
+) {
+  if (actor.role === 'superadmin' || target.role !== 'admin') return;
+  if (target.companyIds.some((id) => !actor.companyIds.includes(id))) {
     throw new ForbiddenException(
-      'Solo el superusuario gestiona administradores',
+      'Ese administrador gestiona empresas que tú no gestionas',
     );
   }
 }
@@ -92,6 +107,7 @@ export class StaffService {
     }
     assertCanManage(actor, target.role);
     if (input.role) assertCanManage(actor, input.role);
+    assertAdminInScope(actor, target);
 
     let companyIds: string[] | undefined;
     if (input.companyIds) {

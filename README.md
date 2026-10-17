@@ -30,7 +30,7 @@ Ya está listo:
   - colaborador (móvil): `/marcar` y `/marcar/historial`;
   - RRHH con selector de empresa: `/rrhh/<empresa>/hoy`, `colaboradores` (alta, ficha, corregir con motivo e historial) y `periodos` (semana, quincenas o rango, alertas y CSV);
   - `/registro` de empresas;
-  - `/rrhh/<empresa>/equipo`: el admin gestiona a sus analistas;
+  - `/rrhh/<empresa>/equipo`: el admin gestiona a los admins y analistas de su alcance;
   - `/admin`: el superusuario gestiona grupos, empresas y sus admins.
 - **Nómina (fase B):**
   - catálogo por grupo: estructuras con reglas de tipos fijos, parámetros por fecha y entradas manuales, con una estructura de referencia "Quincenal VE" instalable;

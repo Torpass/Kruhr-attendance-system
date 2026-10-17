@@ -150,7 +150,7 @@ GET  /companies/:companyId/periods?kind=week|first_half|second_half&date   (o ?f
 GET  /companies/:companyId/periods/export.csv    mismos parámetros
 
 GET   /groups/:groupId/staff                     equipo del grupo (admin, superadmin)
-POST  /groups/:groupId/staff                     { name, email, password, role, companyIds }   admin → solo analistas
+POST  /groups/:groupId/staff                     { name, email, password, role, companyIds }   admin → admins y analistas, con sus empresas
 PATCH /groups/:groupId/staff/:userId             { name?, role?, active?, password?, companyIds? }
 GET   /admin/groups                              superadmin: grupos con sus empresas
 POST  /admin/groups                              { name, code? } → grupo + primera empresa
