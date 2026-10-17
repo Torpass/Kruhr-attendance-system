@@ -113,8 +113,10 @@ function PeriodBody({
       })),
   ]);
 
-  const run = runs.find(
-    (r) => r.dateFrom === data.period.from && r.dateTo === data.period.to && r.state !== "cancelled",
+  // Lotes vigentes que tocan el período: el mismo período o uno que se solapa (p. ej. la quincena
+  // que contiene la semana). La API no deja crear otro lote de la misma estructura encima.
+  const covering = runs.filter(
+    (r) => r.state !== "cancelled" && r.dateFrom <= data.period.to && r.dateTo >= data.period.from,
   );
 
   return (
@@ -166,16 +168,24 @@ function PeriodBody({
       {payroll && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-borde bg-white px-4 py-3 text-sm">
           <Icon name="wallet" className="h-5 w-5 text-kru-700" />
-          {run ? (
-            <>
-              <span className="flex-1">
-                Este período ya tiene lote: <b>{run.name}</b>
-              </span>
-              <Badge tone={RUN_STATE[run.state].tone}>{RUN_STATE[run.state].label}</Badge>
-              <Link href={`/rrhh/${companyId}/nomina/${run.id}`} className="font-semibold text-kru-700 hover:text-kru-800">
-                Ver lote →
-              </Link>
-            </>
+          {covering.length > 0 ? (
+            <ul className="flex min-w-0 flex-1 flex-col gap-2">
+              {covering.map((run) => {
+                const exact = run.dateFrom === data.period.from && run.dateTo === data.period.to;
+                return (
+                  <li key={run.id} className="flex flex-wrap items-center gap-3">
+                    <span className="min-w-0 flex-1">
+                      {exact ? "Este período ya tiene lote: " : "Este período se solapa con el lote "}
+                      <b>{run.name}</b>
+                    </span>
+                    <Badge tone={RUN_STATE[run.state].tone}>{RUN_STATE[run.state].label}</Badge>
+                    <Link href={`/rrhh/${companyId}/nomina/${run.id}`} className="font-semibold text-kru-700 hover:text-kru-800">
+                      Ver lote →
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <>
               <span className="flex-1 text-gris">Este período todavía no tiene lote de nómina.</span>
