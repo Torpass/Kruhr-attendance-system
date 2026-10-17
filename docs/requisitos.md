@@ -113,12 +113,13 @@ Cuando un lote está `validated` o `paid`, la API bloquea las correcciones de tu
 
 ### 4.1 Asistencia (fase A)
 
-El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore), verificado a mano contra los dos ejemplos del enunciado.
+El algoritmo está en [`plan.md` §6](plan.md#6-motor-de-cálculo-packagescore), verificado a mano contra los dos ejemplos del enunciado. Los horarios configurables (jornada, descanso, ventana nocturna y alerta por horario) están en [`horarios.md`](horarios.md).
 
 | Función | Qué hace |
 | --- | --- |
-| `computeShift` | Devuelve los minutos `worked`, `nightOrdinary`, `overtimeDay` y `overtimeNight` de un turno |
-| `summarizePeriod` | Suma los minutos de un colaborador, redondea a 2 decimales solo al final y marca las semanas con más de 600 min de extra |
+| `computeShift` | Devuelve los minutos `worked`, `nightOrdinary`, `overtimeDay` y `overtimeNight` de un turno, según la política del horario (por defecto, la del enunciado) |
+| `validatePolicy` | Errores de consistencia de la política de un horario |
+| `summarizePeriod` | Suma los minutos de un colaborador con la política de cada día, redondea a 2 decimales solo al final y marca las semanas que pasan el umbral de alerta (600 min en la regla general) |
 | `periodFor` / `alertWindow` | Semana o quincena que contiene una fecha / semanas completas que hay que cargar para las alertas |
 | `periodToCsv` | Arma el CSV con las columnas del enunciado |
 | `isStaleOpenShift` | Un turno abierto de 16 h o más es un olvido ("sin salida") |

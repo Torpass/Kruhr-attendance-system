@@ -171,6 +171,8 @@ GET       /me/payslips   GET /me/payslips/:id     recibos validados o pagados de
 
 ## 6. Motor de cálculo (`packages/core`)
 
+> Desde el módulo de Horarios, el corte de 8 h, la ventana nocturna y la alerta salen de la **política del horario** del contrato. Lo que sigue es la regla general (la del enunciado), que rige cuando no hay horario. Ver [`horarios.md`](horarios.md).
+
 **Algoritmo por turno:**
 1. Se convierten la entrada y la salida a hora de Caracas. La fecha del turno es la fecha local de la entrada.
 2. `corte = entrada + 8h`. El tramo `[entrada, corte)` es ordinario y `[corte, salida)` es extra.

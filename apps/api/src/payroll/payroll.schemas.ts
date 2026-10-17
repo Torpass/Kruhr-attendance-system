@@ -84,6 +84,12 @@ export const createContractSchema = z
 
 export const endContractSchema = z.object({ dateEnd: localDateSchema });
 
+/** Nuevo horario desde una fecha: cierra el contrato el día anterior y abre uno igual. */
+export const changeScheduleSchema = z.object({
+  scheduleId: z.uuid().nullable(),
+  dateFrom: localDateSchema,
+});
+
 export const createRunSchema = z
   .object({ structureId: z.uuid(), name: z.string().trim().max(80).optional() })
   .and(periodQuerySchema);
@@ -108,5 +114,6 @@ export type CreateParameterInput = z.infer<typeof createParameterSchema>;
 export type ParameterValueInput = z.infer<typeof parameterValueSchema>;
 export type InputTypeInput = z.infer<typeof inputTypeSchema>;
 export type CreateContractInput = z.infer<typeof createContractSchema>;
+export type ChangeScheduleInput = z.infer<typeof changeScheduleSchema>;
 export type CreateRunInput = z.infer<typeof createRunSchema>;
 export type PayslipInputsInput = z.infer<typeof payslipInputsSchema>;

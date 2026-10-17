@@ -13,7 +13,10 @@ import { EmployeesRepository } from '../employees/employees.repository';
 import { SchedulesRepository } from '../schedules/schedules.repository';
 import { CatalogRepository } from './catalog.repository';
 import { ContractsRepository } from './contracts.repository';
-import type { CreateContractInput } from './payroll.schemas';
+import type {
+  ChangeScheduleInput,
+  CreateContractInput,
+} from './payroll.schemas';
 
 function contractConflict(error: unknown): never {
   const code = pgError(error)?.code;
@@ -53,16 +56,7 @@ export class ContractsService {
       input.structureId,
     );
     if (!structure) throw new NotFoundException('Estructura no encontrada');
-    if (input.scheduleId) {
-      const schedule = await this.schedules.findForCompany(
-        companyId,
-        input.scheduleId,
-      );
-      if (!schedule) throw new NotFoundException('Horario no encontrado');
-      if (!schedule.active) {
-        throw new BadRequestException('El horario está inactivo');
-      }
-    }
+    await this.assertSchedule(companyId, input.scheduleId);
     await this.contracts
       .create({ ...input, companyId, employeeId })
       .catch(contractConflict);
@@ -80,6 +74,35 @@ export class ContractsService {
       .catch(contractConflict);
     if (!found) throw new NotFoundException('Contrato no encontrado');
     return this.contracts.list(companyId, employeeId);
+  }
+
+  /** Desde `dateFrom`, el colaborador sigue con el mismo contrato pero con otro horario. */
+  async changeSchedule(
+    companyId: string,
+    employeeId: string,
+    contractId: string,
+    { scheduleId, dateFrom }: ChangeScheduleInput,
+  ) {
+    await this.assertSchedule(companyId, scheduleId);
+    const result = await this.contracts
+      .changeSchedule(companyId, employeeId, contractId, scheduleId, dateFrom)
+      .catch(contractConflict);
+    if (!result) throw new NotFoundException('Contrato no encontrado');
+    if (result === 'out_of_range') {
+      throw new BadRequestException(
+        'La fecha debe ser posterior al inicio del contrato y estar dentro de su vigencia',
+      );
+    }
+    return this.contracts.list(companyId, employeeId);
+  }
+
+  private async assertSchedule(companyId: string, scheduleId: string | null) {
+    if (!scheduleId) return;
+    const schedule = await this.schedules.findForCompany(companyId, scheduleId);
+    if (!schedule) throw new NotFoundException('Horario no encontrado');
+    if (!schedule.active) {
+      throw new BadRequestException('El horario está inactivo');
+    }
   }
 
   private async assertEmployee(companyId: string, employeeId: string) {

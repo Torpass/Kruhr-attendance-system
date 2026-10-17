@@ -11,8 +11,10 @@ import { Roles } from '../common/auth/roles.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { ContractsService } from './contracts.service';
 import {
+  changeScheduleSchema,
   createContractSchema,
   endContractSchema,
+  type ChangeScheduleInput,
   type CreateContractInput,
 } from './payroll.schemas';
 
@@ -38,6 +40,25 @@ export class ContractsController {
   ) {
     return {
       contracts: await this.contracts.create(companyId, employeeId, body),
+    };
+  }
+
+  /** Otro horario desde una fecha: cierra este contrato el día anterior y abre uno igual. */
+  @Post(':contractId/schedule')
+  async changeSchedule(
+    @Param('companyId') companyId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+    @Body(new ZodValidationPipe(changeScheduleSchema))
+    body: ChangeScheduleInput,
+  ) {
+    return {
+      contracts: await this.contracts.changeSchedule(
+        companyId,
+        employeeId,
+        contractId,
+        body,
+      ),
     };
   }
 
