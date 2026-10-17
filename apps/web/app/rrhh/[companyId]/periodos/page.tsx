@@ -4,55 +4,23 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ShiftForm } from "@/components/shift-form";
+import { PeriodPicker, usePeriodPicker } from "@/components/period-picker";
+import { ShiftsPanel, type PanelEmployee } from "@/components/shifts-panel";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, EmptyState, Stat } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icons";
 import { api, errorMessage } from "@/lib/api";
 import { RUN_STATE } from "@/lib/money";
-import { addDays, formatDay, formatHours, formatHoursValue, formatTime, todayInCaracas } from "@/lib/time";
-import type { PayrollRun, PeriodRow, PeriodSummary, Shift } from "@/lib/types";
-
-type Kind = "week" | "half" | "range";
-
-const KINDS: { value: Kind; label: string }[] = [
-  { value: "week", label: "Semana" },
-  { value: "half", label: "Quincena" },
-  { value: "range", label: "Rango" },
-];
-
-const fieldClass = "rounded-lg border border-borde-fuerte bg-white px-3 py-2 text-sm";
-
-const shortDay = new Intl.DateTimeFormat("es-VE", { timeZone: "UTC", day: "numeric", month: "short" });
-const monthName = new Intl.DateTimeFormat("es-VE", { timeZone: "UTC", month: "long", year: "numeric" });
-const asDate = (localDate: string) => new Date(`${localDate}T00:00:00Z`);
-
-/** La quincena la decide el día: del 1 al 15 es la primera. */
-const halfOf = (date: string) => (Number(date.slice(8)) <= 15 ? "first_half" : "second_half");
-
-function periodTitle(kind: Kind, from: string, to: string) {
-  const range = `${shortDay.format(asDate(from))} – ${shortDay.format(asDate(to))} ${from.slice(0, 4)}`;
-  if (kind === "half") {
-    const half = halfOf(from) === "first_half" ? "1.ª" : "2.ª";
-    return { title: `${half} quincena de ${monthName.format(asDate(from))}`, range };
-  }
-  return { title: kind === "week" ? `Semana del ${range}` : range, range: null };
-}
+import { formatDay, formatHoursValue } from "@/lib/time";
+import type { PayrollRun, PeriodRow, PeriodSummary } from "@/lib/types";
 
 const hasHours = (row: PeriodRow) => row.minutes.worked > 0;
 
 export default function PeriodosPage() {
   const { companyId } = useParams<{ companyId: string }>();
-  const today = todayInCaracas();
-  const [kind, setKind] = useState<Kind>("week");
-  const [date, setDate] = useState(today);
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState(today);
-
-  const apiKind = kind === "half" ? halfOf(date) : kind;
-  const params = new URLSearchParams(kind === "range" ? { from, to } : { kind: apiKind, date }).toString();
+  const picker = usePeriodPicker();
+  const { kind, apiKind, date, params } = picker;
   const summary = useQuery({
     queryKey: ["companies", companyId, "periods", params],
     queryFn: () => api<PeriodSummary>(`/companies/${companyId}/periods?${params}`),
@@ -64,15 +32,6 @@ export default function PeriodosPage() {
 
   const data = summary.data;
   const period = data?.period;
-
-  /** Período anterior o siguiente: el día justo antes del inicio o después del fin. */
-  function step(direction: -1 | 1) {
-    if (!period) return;
-    setDate(direction < 0 ? addDays(period.from, -1) : addDays(period.to, 1));
-  }
-
-  const heading = period && periodTitle(kind, period.from, period.to);
-  const isCurrent = period && today >= period.from && today <= period.to;
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,90 +52,7 @@ export default function PeriodosPage() {
         </a>
       </div>
 
-      <Card className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="radiogroup" aria-label="Tipo de período" className="grid grid-cols-3 gap-1 rounded-lg bg-hueso p-1">
-            {KINDS.map((option) => (
-              <label
-                key={option.value}
-                className={`cursor-pointer rounded-md px-3 py-1.5 text-center text-sm font-semibold transition-colors has-focus-visible:ring-2 has-focus-visible:ring-kru-300 ${
-                  kind === option.value ? "bg-white text-grafito shadow-kru" : "text-gris hover:text-grafito"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="kind"
-                  value={option.value}
-                  checked={kind === option.value}
-                  onChange={() => {
-                    setKind(option.value);
-                    if (option.value === "range" && period) {
-                      setFrom(period.from);
-                      setTo(period.to);
-                    }
-                  }}
-                  className="sr-only"
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
-          {kind === "range" ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="sr-only" htmlFor="from">Desde</label>
-              <input id="from" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className={fieldClass} />
-              <span className="text-gris">→</span>
-              <label className="sr-only" htmlFor="to">Hasta</label>
-              <input id="to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className={fieldClass} />
-            </div>
-          ) : (
-            <label className="flex items-center gap-2 text-[13px] text-gris">
-              Ir a una fecha
-              <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className={fieldClass} />
-            </label>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 border-t border-borde pt-4">
-          {kind !== "range" && (
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              disabled={!period}
-              aria-label="Período anterior"
-              className="grid h-9 w-9 place-items-center rounded-lg border border-borde-fuerte text-gris hover:border-kru-300 hover:text-kru-700"
-            >
-              <Icon name="chevron" className="h-4 w-4 rotate-180" />
-            </button>
-          )}
-          <div className="min-w-0 flex-1 px-1">
-            <p className="text-base font-bold tracking-[-0.02em] first-letter:uppercase sm:text-lg">{heading?.title ?? "…"}</p>
-            {heading?.range && <p className="text-[13px] text-gris">{heading.range}</p>}
-          </div>
-          {kind !== "range" && (
-            <>
-              {!isCurrent && (
-                <button
-                  type="button"
-                  onClick={() => setDate(today)}
-                  className="rounded-lg px-3 py-2 text-sm font-semibold text-kru-700 hover:bg-kru-50"
-                >
-                  Hoy
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => step(1)}
-                disabled={!period}
-                aria-label="Período siguiente"
-                className="grid h-9 w-9 place-items-center rounded-lg border border-borde-fuerte text-gris hover:border-kru-300 hover:text-kru-700"
-              >
-                <Icon name="chevron" className="h-4 w-4" />
-              </button>
-            </>
-          )}
-        </div>
-      </Card>
+      <PeriodPicker picker={picker} period={period} />
 
       {summary.isError ? (
         <EmptyState>{errorMessage(summary.error)}</EmptyState>
@@ -194,7 +70,7 @@ export default function PeriodosPage() {
   );
 }
 
-type Panel = { employee: PeriodRow["employee"]; focus: "open" | null };
+type Panel = { employee: PanelEmployee; focus: "open" | null };
 
 function PeriodBody({
   companyId,
@@ -390,133 +266,5 @@ function PeriodBody({
         )}
       </Dialog>
     </>
-  );
-}
-
-/** Días bloqueados: los de un lote validado o pagado (la API rechaza corregirlos). */
-function lockingRun(runs: PayrollRun[], date: string) {
-  return runs.find((r) => (r.state === "validated" || r.state === "paid") && r.dateFrom <= date && date <= r.dateTo);
-}
-
-/**
- * Turnos del colaborador en el período, con corrección y alta de turnos olvidados.
- * `editing`: id del turno, "new" o null; undefined mientras no se eligió nada (con `focus`
- * "open" se abre directo el turno sin salida).
- */
-function ShiftsPanel({
-  companyId,
-  employee,
-  period,
-  focus,
-  runs,
-}: {
-  companyId: string;
-  employee: PeriodRow["employee"];
-  period: { from: string; to: string };
-  focus: "open" | null;
-  runs: PayrollRun[];
-}) {
-  const [editing, setEditing] = useState<string | null | undefined>(undefined);
-  const shifts = useQuery({
-    queryKey: ["companies", companyId, "shifts", employee.id, period.from, period.to],
-    queryFn: () =>
-      api<{ shifts: Shift[] }>(
-        `/companies/${companyId}/shifts?from=${period.from}&to=${period.to}&employeeId=${employee.id}`,
-      ).then((r) => r.shifts),
-  });
-
-  const autoOpen = focus === "open" ? shifts.data?.find((s) => !s.clockOut && !lockingRun(runs, s.date)) : undefined;
-  const current = editing === undefined ? (autoOpen?.id ?? null) : editing;
-  const shift = shifts.data?.find((s) => s.id === current) ?? null;
-  const today = todayInCaracas();
-  const newShiftDay = today >= period.from && today <= period.to ? today : period.from;
-  const periodLock = lockingRun(runs, newShiftDay);
-
-  if (current !== null && (shift || current === "new")) {
-    return (
-      <div className="flex flex-col gap-4">
-        <button type="button" onClick={() => setEditing(null)} className="self-start text-sm font-semibold text-kru-700 hover:text-kru-800">
-          ← Turnos del período
-        </button>
-        <h3 className="font-semibold">
-          {shift ? `Corregir turno del ${formatDay(shift.date)}` : "Agregar turno olvidado"}
-        </h3>
-        <ShiftForm
-          companyId={companyId}
-          employeeId={employee.id}
-          shift={shift}
-          defaultDate={newShiftDay}
-          onDone={() => setEditing(null)}
-          onCancel={() => setEditing(null)}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="-mt-2 flex items-center justify-between gap-3 text-[13px] text-gris">
-        <span className="tabular-nums">C.I. {employee.cedula} · {formatDay(period.from)} → {formatDay(period.to)}</span>
-        <Link href={`/rrhh/${companyId}/colaboradores/${employee.id}`} className="font-semibold text-kru-700 hover:text-kru-800">
-          Ver ficha →
-        </Link>
-      </div>
-
-      {shifts.isError ? (
-        <EmptyState>{errorMessage(shifts.error)}</EmptyState>
-      ) : !shifts.data ? (
-        <p className="text-sm text-gris">Cargando…</p>
-      ) : shifts.data.length === 0 ? (
-        <EmptyState>No tiene turnos en este período.</EmptyState>
-      ) : (
-        <ul className="divide-y divide-borde rounded-xl border border-borde">
-          {shifts.data.map((s) => {
-            const lock = lockingRun(runs, s.date);
-            return (
-              <li key={s.id} className="flex items-center gap-3 px-3.5 py-3 text-sm">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold first-letter:uppercase">{formatDay(s.date)}</span>
-                  <span className="block text-[13px] text-gris tabular-nums">
-                    {formatTime(s.clockIn)} → {s.clockOut ? formatTime(s.clockOut) : "sin salida"}
-                    {s.minutes && ` · ${formatHours(s.minutes.worked)} h`}
-                    {s.minutes && s.minutes.overtimeDay + s.minutes.overtimeNight > 0 &&
-                      ` (${formatHours(s.minutes.overtimeDay + s.minutes.overtimeNight)} extra)`}
-                  </span>
-                  <span className="mt-1 flex flex-wrap gap-1">
-                    {!s.clockOut && <Badge tone="error">Sin salida</Badge>}
-                    {(s.corrections ?? 0) > 0 && <Badge>Corregido</Badge>}
-                  </span>
-                </span>
-                {lock ? (
-                  <span className="text-right text-[12px] text-gris" title={`Lote ${lock.name}`}>
-                    En nómina {RUN_STATE[lock.state].label.toLowerCase()}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(s.id)}
-                    className="font-semibold text-kru-700 hover:text-kru-800"
-                  >
-                    Corregir
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {periodLock ? (
-        <p className="rounded-lg bg-hueso px-3.5 py-2.5 text-[13px] text-gris">
-          Este período está en el lote {periodLock.name} ({RUN_STATE[periodLock.state].label.toLowerCase()}); sus turnos
-          ya no se pueden corregir.
-        </p>
-      ) : (
-        <Button variant="secondary" onClick={() => setEditing("new")} className="self-start">
-          Agregar turno olvidado
-        </Button>
-      )}
-      <p className="text-[12px] text-gris">Cada cambio pide un motivo y queda en el historial del turno.</p>
-    </div>
   );
 }
