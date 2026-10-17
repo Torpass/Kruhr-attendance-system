@@ -210,13 +210,23 @@ export class RunsRepository {
     };
   }
 
-  /** Recibos validados o pagados de un colaborador (vista "mis recibos"). */
-  listForEmployee(employeeId: string) {
+  /**
+   * Recibos de un colaborador, del más reciente al más viejo. Por defecto solo validados o pagados
+   * (vista "mis recibos"); RRHH pide también los calculados. `companyId` limita a su empresa.
+   */
+  listForEmployee(
+    employeeId: string,
+    {
+      companyId,
+      states = ['validated', 'paid'],
+    }: { companyId?: string; states?: RunState[] } = {},
+  ) {
     return this.db
       .select({
         id: payslips.id,
         net: payslips.net,
         run: {
+          id: payrollRuns.id,
           name: payrollRuns.name,
           dateFrom: payrollRuns.dateFrom,
           dateTo: payrollRuns.dateTo,
@@ -228,7 +238,8 @@ export class RunsRepository {
       .where(
         and(
           eq(payslips.employeeId, employeeId),
-          inArray(payrollRuns.state, ['validated', 'paid']),
+          companyId ? eq(payslips.companyId, companyId) : undefined,
+          inArray(payrollRuns.state, states),
         ),
       )
       .orderBy(desc(payrollRuns.dateTo));
