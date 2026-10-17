@@ -1,4 +1,10 @@
-import { AMOUNT_TYPES, QUANTITY_SOURCES, RULE_CONDITIONS } from '@marcaje/core';
+import {
+  AMOUNT_TYPES,
+  OVERTIME_MODES,
+  QUANTITY_SOURCES,
+  RULE_CONDITIONS,
+  type ScheduleDay,
+} from '@marcaje/core';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -337,6 +343,51 @@ export const salaryRules = pgTable(
   ],
 );
 
+export const overtimeMode = pgEnum('overtime_mode', OVERTIME_MODES);
+
+/** Formato `HH:MM` (00:00–23:59). */
+const timeOfDay = (column: AnyPgColumn) =>
+  sql`${column} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`;
+
+/**
+ * Horario de trabajo del grupo: jornada por día y política de cálculo (`WorkPolicy` en core).
+ * Se asigna en el contrato; sin horario rige la política por defecto (la del enunciado).
+ */
+export const workSchedules = pgTable(
+  'work_schedules',
+  {
+    id: id(),
+    groupId: uuid()
+      .notNull()
+      .references(() => companyGroups.id),
+    code: text().notNull(),
+    name: text().notNull(),
+    active: boolean().notNull().default(true),
+    overtimeMode: overtimeMode().notNull().default('duration'),
+    ordinaryMinutes: integer().notNull().default(480),
+    /** Lunes (0) a domingo (6); `null` es día libre. Obligatorio en modo `schedule`. */
+    days: jsonb().$type<(ScheduleDay | null)[]>(),
+    breakMinutes: integer().notNull().default(0),
+    breakAfterMinutes: integer().notNull().default(300),
+    nightStart: text().notNull().default('19:00'),
+    nightEnd: text().notNull().default('05:00'),
+    weeklyOvertimeAlertMinutes: integer().notNull().default(600),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('work_schedules_group_id_code_key').on(t.groupId, t.code),
+    check('work_schedules_code_format', ruleCode(t.code)),
+    check(
+      'work_schedules_minutes',
+      sql`${t.ordinaryMinutes} between 1 and 1440 and ${t.breakMinutes} between 0 and 1440 and ${t.breakAfterMinutes} between 0 and 1440 and ${t.weeklyOvertimeAlertMinutes} between 0 and 10080`,
+    ),
+    check(
+      'work_schedules_night',
+      sql`${timeOfDay(t.nightStart)} and ${timeOfDay(t.nightEnd)} and ${t.nightStart} <> ${t.nightEnd}`,
+    ),
+  ],
+);
+
 /** Contrato (hr.version en Odoo): salario mensual y estructura vigentes entre dos fechas. */
 export const contracts = pgTable(
   'contracts',
@@ -347,6 +398,8 @@ export const contracts = pgTable(
     structureId: uuid()
       .notNull()
       .references(() => salaryStructures.id),
+    /** Horario con el que se calculan sus turnos; `null` usa la política por defecto. */
+    scheduleId: uuid().references(() => workSchedules.id),
     wage: money().notNull(),
     dateStart: date().notNull(),
     dateEnd: date(),

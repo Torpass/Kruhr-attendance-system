@@ -36,6 +36,13 @@
       "when": 1792070626520,
       "tag": "0004_payroll_runs_no_overlap",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792233201219,
+      "tag": "0005_work_schedules",
+      "breakpoints": true
     }
   ]
 }

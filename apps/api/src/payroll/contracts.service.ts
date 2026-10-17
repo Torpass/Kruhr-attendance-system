@@ -10,6 +10,7 @@ import {
   PG_EXCLUSION_VIOLATION,
 } from '../database/pg-error';
 import { EmployeesRepository } from '../employees/employees.repository';
+import { SchedulesRepository } from '../schedules/schedules.repository';
 import { CatalogRepository } from './catalog.repository';
 import { ContractsRepository } from './contracts.repository';
 import type { CreateContractInput } from './payroll.schemas';
@@ -33,6 +34,7 @@ export class ContractsService {
     private readonly contracts: ContractsRepository,
     private readonly employees: EmployeesRepository,
     private readonly catalog: CatalogRepository,
+    private readonly schedules: SchedulesRepository,
   ) {}
 
   async list(companyId: string, employeeId: string) {
@@ -51,6 +53,16 @@ export class ContractsService {
       input.structureId,
     );
     if (!structure) throw new NotFoundException('Estructura no encontrada');
+    if (input.scheduleId) {
+      const schedule = await this.schedules.findForCompany(
+        companyId,
+        input.scheduleId,
+      );
+      if (!schedule) throw new NotFoundException('Horario no encontrado');
+      if (!schedule.active) {
+        throw new BadRequestException('El horario está inactivo');
+      }
+    }
     await this.contracts
       .create({ ...input, companyId, employeeId })
       .catch(contractConflict);

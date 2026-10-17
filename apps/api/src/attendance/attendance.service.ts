@@ -11,6 +11,7 @@ import {
   localDateOf,
   startOfLocalDay,
   type Period,
+  type WorkPolicy,
 } from '@marcaje/core';
 import type { SessionUser } from '../common/auth/session';
 import {
@@ -19,6 +20,7 @@ import {
   PG_UNIQUE_VIOLATION,
 } from '../database/pg-error';
 import { EmployeesRepository } from '../employees/employees.repository';
+import { SchedulesService } from '../schedules/schedules.service';
 import type {
   CorrectShiftInput,
   CreateShiftInput,
@@ -43,15 +45,18 @@ export const instantRange = ({ from, to }: Period): InstantRange => ({
   to: startOfLocalDay(addDays(to, 1)),
 });
 
-/** Turno con sus minutos ya clasificados (null mientras sigue abierto). */
-function withMinutes<T extends Shift>(shift: T) {
+/** Turno con sus minutos ya clasificados según la política de su día (null mientras sigue abierto). */
+function withMinutes<T extends Shift>(shift: T, policy: WorkPolicy) {
   return {
     ...shift,
     date: localDateOf(shift.clockIn),
     minutes:
       shift.clockOut === null
         ? null
-        : computeShift({ clockIn: shift.clockIn, clockOut: shift.clockOut }),
+        : computeShift(
+            { clockIn: shift.clockIn, clockOut: shift.clockOut },
+            policy,
+          ),
   };
 }
 
@@ -83,7 +88,37 @@ export class AttendanceService {
   constructor(
     private readonly shifts: ShiftsRepository,
     private readonly employees: EmployeesRepository,
+    private readonly schedules: SchedulesService,
   ) {}
+
+  /** Clasifica los turnos con el horario del contrato vigente de cada colaborador ese día. */
+  private async classify<T extends Shift>(shifts: T[]) {
+    if (shifts.length === 0) return [];
+    const dates = shifts.map((shift) => localDateOf(shift.clockIn)).sort();
+    const companyIds = [...new Set(shifts.map((shift) => shift.companyId))];
+    const period = { from: dates[0], to: dates[dates.length - 1] };
+    const policies = new Map(
+      await Promise.all(
+        companyIds.map(
+          async (id) =>
+            [id, await this.schedules.policiesFor(id, period)] as const,
+        ),
+      ),
+    );
+    return shifts.map((shift) =>
+      withMinutes(
+        shift,
+        policies.get(shift.companyId)!(shift.employeeId)(
+          localDateOf(shift.clockIn),
+        ),
+      ),
+    );
+  }
+
+  private async classifyOne<T extends Shift>(shift: T) {
+    const [classified] = await this.classify([shift]);
+    return classified;
+  }
 
   // ── Colaborador ────────────────────────────────────────────────────────────
 
@@ -101,7 +136,7 @@ export class AttendanceService {
     const shift = await this.shifts
       .open(user.companyIds[0], user.id, now)
       .catch(overlapConflict);
-    return withMinutes(shift);
+    return this.classifyOne(shift);
   }
 
   /** Cierra el turno abierto con la hora del servidor. Un olvido de 16 h o más lo corrige RRHH. */
@@ -116,7 +151,7 @@ export class AttendanceService {
     }
     const closed = await this.shifts.close(open.id, now).catch(overlapConflict);
     if (!closed) throw new ConflictException('El turno ya estaba cerrado');
-    return withMinutes(closed);
+    return this.classifyOne(closed);
   }
 
   /** Estado actual y turnos de hoy (hora de Caracas). */
@@ -132,9 +167,9 @@ export class AttendanceService {
     ]);
     return {
       date: today,
-      openShift: open ? withMinutes(open) : null,
+      openShift: open ? await this.classifyOne(open) : null,
       openShiftIsStale: open ? isStaleOpenShift(open.clockIn, now) : false,
-      shifts: shifts.map(withMinutes),
+      shifts: await this.classify(shifts),
     };
   }
 
@@ -143,7 +178,7 @@ export class AttendanceService {
       user.id,
       instantRange(period),
     );
-    return shifts.map(withMinutes);
+    return this.classify(shifts);
   }
 
   // ── RRHH ───────────────────────────────────────────────────────────────────
@@ -213,7 +248,7 @@ export class AttendanceService {
       instantRange(period),
       employeeId,
     );
-    return shifts.map(withMinutes);
+    return this.classify(shifts);
   }
 
   /** Corrige entrada y/o salida. El motivo es obligatorio y queda en el historial. */
@@ -235,7 +270,7 @@ export class AttendanceService {
       })
       .catch(overlapConflict);
     if (!shift) throw new NotFoundException('Turno no encontrado');
-    return withMinutes(shift);
+    return this.classifyOne(shift);
   }
 
   /** Turno creado por RRHH cuando el colaborador no marcó nada. */
@@ -250,7 +285,7 @@ export class AttendanceService {
     const shift = await this.shifts
       .createManual(companyId, employeeId, times, { reason, correctedBy })
       .catch(overlapConflict);
-    return withMinutes(shift);
+    return this.classifyOne(shift);
   }
 
   corrections(companyId: string, shiftId: string) {

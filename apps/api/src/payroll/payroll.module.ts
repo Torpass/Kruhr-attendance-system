@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EmployeesModule } from '../employees/employees.module';
 import { PeriodsModule } from '../periods/periods.module';
+import { SchedulesModule } from '../schedules/schedules.module';
 import { CatalogController } from './catalog.controller';
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
@@ -13,7 +14,7 @@ import { RunsRepository } from './runs.repository';
 import { RunsService } from './runs.service';
 
 @Module({
-  imports: [EmployeesModule, PeriodsModule],
+  imports: [EmployeesModule, PeriodsModule, SchedulesModule],
   controllers: [
     CatalogController,
     ContractsController,
