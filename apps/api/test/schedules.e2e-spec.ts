@@ -190,4 +190,37 @@ describe('Horarios (integración)', () => {
       })
       .expect(404);
   });
+
+  it('cambia de horario desde una fecha sin tocar los días anteriores', async () => {
+    const contracts = company(`employees/${ids.luis}/contracts`);
+    const list = await agents.adminA.get(contracts).expect(200);
+    const current = list.body.contracts[0];
+
+    // Un horario inactivo no se asigna.
+    await agents.adminA
+      .post(`${contracts}/${current.id}/schedule`)
+      .send({ scheduleId, dateFrom: '2026-10-06' })
+      .expect(400);
+
+    const res = await agents.adminA
+      .post(`${contracts}/${current.id}/schedule`)
+      .send({ scheduleId: null, dateFrom: '2026-10-06' })
+      .expect(201);
+    expect(res.body.contracts).toMatchObject([
+      { dateStart: '2026-10-06', dateEnd: null, schedule: null },
+      {
+        dateStart: '2026-10-01',
+        dateEnd: '2026-10-05',
+        schedule: { id: scheduleId },
+      },
+    ]);
+    // El lunes 5 sigue con el horario que tenía (10 h + 1 h de descanso).
+    expect(await luisPeriod()).toMatchObject({ worked: 11, overtimeDay: 1 });
+
+    // La fecha tiene que ser posterior al inicio del contrato.
+    await agents.adminA
+      .post(`${contracts}/${res.body.contracts[0].id}/schedule`)
+      .send({ scheduleId: null, dateFrom: '2026-10-06' })
+      .expect(400);
+  });
 });
