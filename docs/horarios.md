@@ -48,7 +48,11 @@ En la jornada de oficina, de 07:00 a 08:00 y de 17:00 a 19:00 hay 3 h de extra. 
 ## 4. Asignar y cambiar el horario
 
 - **Al crear el contrato** se elige el horario, o la regla general.
-- **Cambiar de horario** ("Cambiar horario" en la ficha del colaborador) cierra el contrato el día anterior a la fecha elegida y abre uno igual (estructura, salario y fin) con el horario nuevo, en una sola transacción (`POST …/contracts/:id/schedule`). Los días anteriores se siguen calculando con el horario que tenían.
+- **Cambiar de horario** ("Cambiar horario" en la ficha del colaborador) se hace en una sola transacción (`POST …/contracts/:id/schedule`):
+  - desde la **fecha de inicio** del contrato, cambia el horario de ese mismo contrato;
+  - desde una fecha posterior, lo cierra el día anterior y abre uno igual (estructura, salario y fin) con el horario nuevo. Los días anteriores se siguen calculando con el horario que tenían.
+- **Editar vigencia** (`PATCH …/contracts/:id` con `dateStart` y/o `dateEnd`) corrige el inicio de un contrato cargado tarde, lo cierra o lo deja sin fin. Se rechaza si se solapa con otro contrato o si los días que entran o salen tocan una nómina validada o pagada de su estructura.
+- **Borrar** (`DELETE …/contracts/:id`) solo es posible si el contrato todavía no tiene recibos de nómina.
 - **Editar un horario** cambia el cálculo de todos los turnos de sus contratos, también hacia atrás. Los recibos de un lote guardan sus horas: no cambian hasta que el lote se recalcula, y un lote validado o pagado ya no se recalcula.
 - Los horarios no se borran: se **desactivan**. Un horario inactivo sigue calculando los contratos que lo tienen, pero no se puede asignar en contratos nuevos.
 
@@ -89,6 +93,7 @@ Se inspira en el análisis de asistencia de Binaural para Cadipa (`binaural_atte
 | Pendiente | Su jornada de hoy aún no termina y no ha marcado |
 | Sin salida | Marcó entrada y no salida |
 | Día libre trabajado | Marcó en un día libre de su horario |
-| Sin horario | Marcó, pero su contrato no tiene horario con jornada fija: no hay contra qué comparar |
+| Sin jornada fija | Marcó, pero su contrato usa la regla general o un horario sin jornada fija: no hay contra qué comparar |
+| Sin contrato | Marcó un día en que no tenía contrato. Sin contrato tampoco hay ausencias |
 
 Al hacer clic en un colaborador se abre el panel de sus turnos del período para corregirlos con motivo. Un día con algún turno corregido muestra "Corregido".

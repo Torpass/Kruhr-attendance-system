@@ -8,6 +8,7 @@ import {
   pgError,
   PG_CHECK_VIOLATION,
   PG_EXCLUSION_VIOLATION,
+  PG_FOREIGN_KEY_VIOLATION,
 } from '../database/pg-error';
 import { EmployeesRepository } from '../employees/employees.repository';
 import { SchedulesRepository } from '../schedules/schedules.repository';
@@ -16,6 +17,7 @@ import { ContractsRepository } from './contracts.repository';
 import type {
   ChangeScheduleInput,
   CreateContractInput,
+  UpdateContractInput,
 } from './payroll.schemas';
 
 function contractConflict(error: unknown): never {
@@ -63,15 +65,37 @@ export class ContractsService {
     return this.contracts.list(companyId, employeeId);
   }
 
-  async end(
+  /** Cambia la vigencia (inicio y/o fin; `dateEnd: null` la deja sin fin). */
+  async update(
     companyId: string,
     employeeId: string,
     contractId: string,
-    dateEnd: string,
+    changes: UpdateContractInput,
   ) {
-    const found = await this.contracts
-      .end(companyId, contractId, dateEnd)
+    const result = await this.contracts
+      .update(companyId, employeeId, contractId, changes)
       .catch(contractConflict);
+    if (!result) throw new NotFoundException('Contrato no encontrado');
+    if (result === 'closed_payroll') {
+      throw new ConflictException(
+        'Esas fechas tocan una nómina validada o pagada de esta estructura',
+      );
+    }
+    return this.contracts.list(companyId, employeeId);
+  }
+
+  /** Borra un contrato creado por error. Si ya tiene recibos, hay que cerrarlo. */
+  async remove(companyId: string, employeeId: string, contractId: string) {
+    const found = await this.contracts
+      .remove(companyId, employeeId, contractId)
+      .catch((error: unknown) => {
+        if (pgError(error)?.code === PG_FOREIGN_KEY_VIOLATION) {
+          throw new ConflictException(
+            'El contrato ya tiene recibos de nómina: ciérralo en vez de borrarlo',
+          );
+        }
+        throw error;
+      });
     if (!found) throw new NotFoundException('Contrato no encontrado');
     return this.contracts.list(companyId, employeeId);
   }
@@ -90,7 +114,7 @@ export class ContractsService {
     if (!result) throw new NotFoundException('Contrato no encontrado');
     if (result === 'out_of_range') {
       throw new BadRequestException(
-        'La fecha debe ser posterior al inicio del contrato y estar dentro de su vigencia',
+        'La fecha debe estar dentro de la vigencia del contrato (desde su inicio)',
       );
     }
     return this.contracts.list(companyId, employeeId);

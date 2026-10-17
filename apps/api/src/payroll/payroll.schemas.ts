@@ -82,7 +82,14 @@ export const createContractSchema = z
     path: ['dateEnd'],
   });
 
-export const endContractSchema = z.object({ dateEnd: localDateSchema });
+/** Cambia la vigencia del contrato: el inicio, el fin o ambos (`dateEnd: null`, sin fin). */
+export const updateContractSchema = z
+  .object({
+    dateStart: localDateSchema,
+    dateEnd: localDateSchema.nullable(),
+  })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, 'No hay cambios');
 
 /** Nuevo horario desde una fecha: cierra el contrato el día anterior y abre uno igual. */
 export const changeScheduleSchema = z.object({
@@ -115,5 +122,6 @@ export type ParameterValueInput = z.infer<typeof parameterValueSchema>;
 export type InputTypeInput = z.infer<typeof inputTypeSchema>;
 export type CreateContractInput = z.infer<typeof createContractSchema>;
 export type ChangeScheduleInput = z.infer<typeof changeScheduleSchema>;
+export type UpdateContractInput = z.infer<typeof updateContractSchema>;
 export type CreateRunInput = z.infer<typeof createRunSchema>;
 export type PayslipInputsInput = z.infer<typeof payslipInputsSchema>;
