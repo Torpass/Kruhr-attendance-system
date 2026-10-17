@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { DownloadPdf } from "@/components/download-pdf";
 import { PayslipLines } from "@/components/payslip-lines";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/card";
@@ -23,7 +24,7 @@ type MyPayslipDetail = {
   lines: PayslipLine[];
 };
 
-/** Recibo de pago imprimible. */
+/** Recibo de pago. Cuando la nómina está pagada se descarga en PDF; antes, solo se puede imprimir. */
 export default function ReciboPage() {
   const { payslipId } = useParams<{ payslipId: string }>();
   const slip = useQuery({
@@ -41,7 +42,13 @@ export default function ReciboPage() {
         <Link href="/marcar/recibos" className="text-sm font-semibold text-kru-700 hover:text-kru-800">
           ← Mis recibos
         </Link>
-        <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
+        {data.run.state === "paid" ? (
+          <DownloadPdf href={`/api/me/payslips/${payslipId}/pdf`} variant="primary">
+            Descargar PDF
+          </DownloadPdf>
+        ) : (
+          <Button variant="secondary" onClick={() => window.print()}>Imprimir</Button>
+        )}
       </div>
       <Card className="print:border-0 print:p-0">
         <p className="rotulo text-gris">Recibo de pago</p>

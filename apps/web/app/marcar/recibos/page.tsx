@@ -28,7 +28,9 @@ export default function RecibosPage() {
       </Link>
       <Card>
         <h1 className="text-xl font-bold tracking-[-0.02em]">Mis recibos</h1>
-        <p className="mt-1 text-sm text-gris">Aparecen cuando RRHH valida la nómina.</p>
+        <p className="mt-1 text-sm text-gris">
+          Aparecen cuando RRHH valida la nómina. Cuando está pagada, puedes descargar el recibo en PDF.
+        </p>
         <div className="mt-4">
           {payslips.isError ? (
             <EmptyState>{errorMessage(payslips.error)}</EmptyState>
@@ -48,7 +50,10 @@ export default function RecibosPage() {
                       <span className="block text-sm font-semibold first-letter:uppercase">
                         {formatDay(slip.run.dateFrom)} → {formatDay(slip.run.dateTo)}
                       </span>
-                      <span className="block text-[13px] text-gris tabular-nums">Neto Bs. {formatMoney(slip.net)}</span>
+                      <span className="block text-[13px] text-gris tabular-nums">
+                        Neto Bs. {formatMoney(slip.net)}
+                        {slip.run.state === "paid" && " · PDF disponible"}
+                      </span>
                     </span>
                     <Badge tone={RUN_STATE[slip.run.state].tone}>{RUN_STATE[slip.run.state].label}</Badge>
                   </Link>

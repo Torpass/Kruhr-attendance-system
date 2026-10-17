@@ -4,6 +4,7 @@ import { and, asc, count, desc, eq, inArray, sum } from 'drizzle-orm';
 import { DB } from '../database/database.constants';
 import type { Database, DbExecutor } from '../database/database.module';
 import {
+  companies,
   employees,
   payrollRuns,
   payslipInputs,
@@ -121,6 +122,15 @@ export class RunsRepository {
       .innerJoin(employees, eq(employees.id, payslips.employeeId))
       .where(eq(payslips.runId, runId))
       .orderBy(asc(employees.name));
+  }
+
+  /** Nombre y RIF de la empresa, para el encabezado del recibo. */
+  async company(companyId: string) {
+    const [row] = await this.db
+      .select({ name: companies.name, rif: companies.rif })
+      .from(companies)
+      .where(eq(companies.id, companyId));
+    return row;
   }
 
   /** Recibo con sus líneas, horas y entradas. `employeeId` limita a los del colaborador. */
