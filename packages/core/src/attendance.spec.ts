@@ -149,4 +149,18 @@ describe('compareAttendance', () => {
     );
     expect(monday).toMatchObject({ status: 'late', lateMinutes: 130 });
   });
+
+  it('sin contrato ese día: sus marcajes no se comparan y no hay ausencias', () => {
+    const days = compareAttendance(
+      [shift('2026-10-05T08:30', '2026-10-05T17:00')],
+      week,
+      () => officePolicy,
+      { now, hasContract: (date) => date >= '2026-10-08' },
+    );
+    expect(days.map((d) => [d.date, d.status])).toEqual([
+      ['2026-10-05', 'no_contract'],
+      ['2026-10-08', 'absent'],
+      ['2026-10-09', 'absent'],
+    ]);
+  });
 });

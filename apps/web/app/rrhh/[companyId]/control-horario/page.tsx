@@ -25,7 +25,8 @@ const STATUS: Record<DayStatus, { label: string; tone: Tone }> = {
   pending: { label: "Pendiente", tone: "neutro" },
   open: { label: "Sin salida", tone: "error" },
   worked_day_off: { label: "Día libre trabajado", tone: "marca" },
-  unscheduled: { label: "Sin horario", tone: "neutro" },
+  unscheduled: { label: "Sin jornada fija", tone: "neutro" },
+  no_contract: { label: "Sin contrato", tone: "neutro" },
 };
 
 /** Lo que RRHH tiene que mirar: faltas de puntualidad, ausencias y turnos sin salida. */
@@ -76,7 +77,13 @@ function Row({ day, onOpen }: { day: AttendanceDay; onOpen: () => void }) {
         <span className="block text-[12px] text-gris tabular-nums">C.I. {day.employee.cedula}</span>
       </td>
       <td className="px-4 py-3 font-mono text-[13px] text-gris tabular-nums">
-        {day.scheduled ? `${formatTime(day.scheduled.start)}–${formatTime(day.scheduled.end)}` : "—"}
+        {day.scheduled
+          ? `${formatTime(day.scheduled.start)}–${formatTime(day.scheduled.end)}`
+          : day.status === "no_contract"
+            ? <span className="font-sans">Sin contrato ese día</span>
+            : day.status === "unscheduled"
+              ? <span className="font-sans">Regla general</span>
+              : "—"}
       </td>
       <td className="px-4 py-3">
         <Punch at={day.firstIn} delay={day.lateMinutes} ahead={day.arrivedEarlyMinutes} delayLabel="tarde" aheadLabel="antes" />

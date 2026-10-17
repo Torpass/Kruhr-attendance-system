@@ -217,10 +217,42 @@ describe('Horarios (integración)', () => {
     // El lunes 5 sigue con el horario que tenía (10 h + 1 h de descanso).
     expect(await luisPeriod()).toMatchObject({ worked: 11, overtimeDay: 1 });
 
-    // La fecha tiene que ser posterior al inicio del contrato.
+    // La fecha no puede ser anterior al inicio del contrato.
     await agents.adminA
       .post(`${contracts}/${res.body.contracts[0].id}/schedule`)
-      .send({ scheduleId: null, dateFrom: '2026-10-06' })
+      .send({ scheduleId: null, dateFrom: '2026-10-05' })
       .expect(400);
+  });
+
+  it('cambiar el horario desde el inicio del contrato no lo parte; se corrige el inicio y se borra', async () => {
+    const contracts = company(`employees/${ids.luis}/contracts`);
+    const before = await agents.adminA.get(contracts).expect(200);
+    const [current, first] = before.body.contracts as { id: string }[];
+
+    // En la fecha de inicio cambia el horario de ese mismo contrato.
+    const same = await agents.adminA
+      .post(`${contracts}/${first.id}/schedule`)
+      .send({ scheduleId: null, dateFrom: '2026-10-01' })
+      .expect(201);
+    expect(same.body.contracts).toHaveLength(2);
+    expect(same.body.contracts[1]).toMatchObject({
+      id: first.id,
+      dateStart: '2026-10-01',
+      schedule: null,
+    });
+
+    // Adelantar el inicio sobre otro contrato se solapa; borrado el otro, sí se puede.
+    await agents.adminA
+      .patch(`${contracts}/${current.id}`)
+      .send({ dateStart: '2026-10-01' })
+      .expect(409);
+    await agents.adminA.delete(`${contracts}/${first.id}`).expect(200);
+    const fixed = await agents.adminA
+      .patch(`${contracts}/${current.id}`)
+      .send({ dateStart: '2026-10-01' })
+      .expect(200);
+    expect(fixed.body.contracts).toMatchObject([
+      { id: current.id, dateStart: '2026-10-01', dateEnd: null },
+    ]);
   });
 });

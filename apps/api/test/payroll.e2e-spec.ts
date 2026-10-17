@@ -345,4 +345,33 @@ describe('Nómina (integración)', () => {
         .expect(404);
     });
   });
+
+  describe('contrato con nómina cerrada', () => {
+    it('no mueve la vigencia sobre una nómina pagada ni borra un contrato con recibos', async () => {
+      const url = company(`employees/${ids.luis}/contracts`);
+      const list = await agents.analystA.get(url).expect(200);
+      const id = (list.body.contracts as { id: string }[])[0].id;
+
+      await agents.analystA
+        .patch(`${url}/${id}`)
+        .send({ dateStart: '2026-10-10' })
+        .expect(409);
+      await agents.analystA
+        .patch(`${url}/${id}`)
+        .send({ dateEnd: '2026-10-12' })
+        .expect(409);
+      // Fuera de la quincena pagada sí: cerrar a fin de mes y volver a dejarlo sin fin.
+      await agents.analystA
+        .patch(`${url}/${id}`)
+        .send({ dateEnd: '2026-10-31' })
+        .expect(200);
+      await agents.analystA
+        .patch(`${url}/${id}`)
+        .send({ dateEnd: null })
+        .expect(200);
+
+      const removed = await agents.analystA.delete(`${url}/${id}`).expect(409);
+      expect(removed.body.message).toContain('recibos');
+    });
+  });
 });

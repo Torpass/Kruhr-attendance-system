@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { api, errorMessage } from "@/lib/api";
 import { useCurrentCompany } from "@/lib/companies";
 import { formatMoney } from "@/lib/money";
-import { addDays, formatDay, todayInCaracas } from "@/lib/time";
+import { formatDay, todayInCaracas } from "@/lib/time";
 import type { Contract, Structure, WorkSchedule } from "@/lib/types";
 
 const selectClass = "rounded-lg border border-borde-fuerte bg-white px-3.5 py-2.5 text-sm";
@@ -37,6 +37,8 @@ export function ContractsCard({ companyId, employeeId }: { companyId: string; em
   const groupId = company?.group.id;
   const url = `/companies/${companyId}/employees/${employeeId}/contracts`;
   const [changing, setChanging] = useState<Contract | null>(null);
+  const [editing, setEditing] = useState<Contract | null>(null);
+  const [openEnded, setOpenEnded] = useState(true);
 
   const contracts = useQuery({
     queryKey: ["companies", companyId, "contracts", employeeId],
@@ -63,8 +65,9 @@ export function ContractsCard({ companyId, employeeId }: { companyId: string; em
   });
 
   /**
-   * Cambiar de horario: la API cierra el contrato el día anterior y abre uno igual desde la fecha,
-   * en una transacción. Los días anteriores se siguen calculando con el horario que tenían.
+   * Cambiar de horario, en una transacción de la API: desde el inicio del contrato cambia el de ese
+   * mismo contrato; desde una fecha posterior lo cierra el día anterior y abre uno igual. Los días
+   * anteriores se siguen calculando con el horario que tenían.
    */
   const changeSchedule = useMutation({
     mutationFn: ({ contract, scheduleId, from }: { contract: Contract; scheduleId: string | null; from: string }) =>
@@ -74,6 +77,27 @@ export function ContractsCard({ companyId, employeeId }: { companyId: string; em
       void refresh();
     },
   });
+
+  /** Vigencia: corregir el inicio, cerrar o dejar sin fin; o borrar un contrato creado por error. */
+  const editDates = useMutation({
+    mutationFn: ({ contract, method, body }: { contract: Contract; method: "PATCH" | "DELETE"; body?: unknown }) =>
+      api(`${url}/${contract.id}`, { method, body: body ? JSON.stringify(body) : undefined }),
+    onSuccess: () => {
+      setEditing(null);
+      void refresh();
+    },
+  });
+
+  function onEditDates(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    const form = new FormData(event.currentTarget);
+    editDates.mutate({
+      contract: editing,
+      method: "PATCH",
+      body: { dateStart: form.get("dateStart"), dateEnd: form.get("open") ? null : form.get("dateEnd") },
+    });
+  }
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,30 +143,27 @@ export function ContractsCard({ companyId, employeeId }: { companyId: string; em
               </span>
             </span>
             {c.id === current?.id && <Badge tone="exito">Vigente</Badge>}
-            {!c.dateEnd && (
-              <>
-                <Button
-                  variant="secondary"
-                  disabled={!schedules.data}
-                  onClick={() => {
-                    changeSchedule.reset();
-                    setChanging(c);
-                  }}
-                >
-                  Cambiar horario
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={save.isPending}
-                  onClick={() => {
-                    const dateEnd = window.prompt("Fecha de fin (AAAA-MM-DD)", today);
-                    if (dateEnd) save.mutate({ path: `/${c.id}`, method: "PATCH", body: { dateEnd } });
-                  }}
-                >
-                  Cerrar
-                </Button>
-              </>
-            )}
+            {c.dateStart > today && <Badge tone="neutro">Desde {formatDay(c.dateStart)}</Badge>}
+            <Button
+              variant="secondary"
+              disabled={!schedules.data}
+              onClick={() => {
+                changeSchedule.reset();
+                setChanging(c);
+              }}
+            >
+              Cambiar horario
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                editDates.reset();
+                setOpenEnded(c.dateEnd === null);
+                setEditing(c);
+              }}
+            >
+              Editar vigencia
+            </Button>
           </li>
         ))}
         {contracts.data?.length === 0 && (
@@ -175,16 +196,20 @@ export function ContractsCard({ companyId, employeeId }: { companyId: string; em
         {changing && (
           <form onSubmit={onChange} className="flex flex-col gap-4">
             <p className="text-[13px] text-gris">
-              El contrato actual se cierra el día anterior y se abre uno igual (estructura y salario) con el horario nuevo.
-              Los días anteriores se siguen calculando con el horario que tenían.
+              Desde el inicio del contrato ({formatDay(changing.dateStart)}) se cambia el horario de este mismo contrato.
+              Desde una fecha posterior, el contrato se cierra el día anterior y se abre uno igual con el horario nuevo, y
+              los días anteriores conservan el que tenían.
             </p>
             <ScheduleSelect schedules={schedules.data ?? []} defaultValue={changing.schedule?.id} />
             <Input
               label="Desde"
               name="from"
               type="date"
-              min={addDays(changing.dateStart, 1)}
-              defaultValue={today > changing.dateStart ? today : addDays(changing.dateStart, 1)}
+              min={changing.dateStart}
+              max={changing.dateEnd ?? undefined}
+              defaultValue={
+                today > changing.dateStart && (!changing.dateEnd || today <= changing.dateEnd) ? today : changing.dateStart
+              }
               required
             />
             {changeSchedule.isError && (
@@ -197,6 +222,60 @@ export function ContractsCard({ companyId, employeeId }: { companyId: string; em
               <Button type="submit" disabled={changeSchedule.isPending}>
                 {changeSchedule.isPending ? "Guardando…" : "Cambiar horario"}
               </Button>
+            </div>
+          </form>
+        )}
+      </Dialog>
+
+      <Dialog open={editing !== null} onClose={() => setEditing(null)} title="Editar vigencia">
+        {editing && (
+          <form onSubmit={onEditDates} className="flex flex-col gap-4">
+            <p className="text-[13px] text-gris">
+              Corrige desde cuándo rige el contrato (por ejemplo, si se cargó tarde) o hasta cuándo. No se puede mover
+              sobre otro contrato ni sobre una nómina ya validada o pagada.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Inicio" name="dateStart" type="date" defaultValue={editing.dateStart} required />
+              <Input
+                label="Fin"
+                name="dateEnd"
+                type="date"
+                defaultValue={editing.dateEnd ?? today}
+                disabled={openEnded}
+                required={!openEnded}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="open"
+                className="h-4 w-4 accent-kru-600"
+                checked={openEnded}
+                onChange={(e) => setOpenEnded(e.target.checked)}
+              />
+              Sin fecha de fin
+            </label>
+            {editDates.isError && (
+              <p role="alert" className="rounded-lg bg-error-fondo px-3.5 py-2.5 text-sm text-error-texto">
+                {errorMessage(editDates.error)}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-borde pt-4">
+              <button
+                type="button"
+                disabled={editDates.isPending}
+                onClick={() =>
+                  window.confirm("¿Borrar este contrato? Solo se puede si todavía no tiene recibos de nómina.") &&
+                  editDates.mutate({ contract: editing, method: "DELETE" })
+                }
+                className="text-sm font-semibold text-error-texto hover:underline"
+              >
+                Borrar contrato
+              </button>
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button>
+                <Button type="submit" disabled={editDates.isPending}>{editDates.isPending ? "Guardando…" : "Guardar"}</Button>
+              </div>
             </div>
           </form>
         )}

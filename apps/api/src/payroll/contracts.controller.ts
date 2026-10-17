@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -13,9 +14,10 @@ import { ContractsService } from './contracts.service';
 import {
   changeScheduleSchema,
   createContractSchema,
-  endContractSchema,
+  updateContractSchema,
   type ChangeScheduleInput,
   type CreateContractInput,
+  type UpdateContractInput,
 } from './payroll.schemas';
 
 @Roles('admin', 'analyst')
@@ -62,21 +64,34 @@ export class ContractsController {
     };
   }
 
-  /** Cierra el contrato (p. ej. antes de uno nuevo con otro salario). */
+  /** Cambia la vigencia: cerrar (fin), corregir el inicio o dejarlo sin fin. */
   @Patch(':contractId')
-  async end(
+  async update(
     @Param('companyId') companyId: string,
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
     @Param('contractId', ParseUUIDPipe) contractId: string,
-    @Body(new ZodValidationPipe(endContractSchema)) body: { dateEnd: string },
+    @Body(new ZodValidationPipe(updateContractSchema))
+    body: UpdateContractInput,
   ) {
     return {
-      contracts: await this.contracts.end(
+      contracts: await this.contracts.update(
         companyId,
         employeeId,
         contractId,
-        body.dateEnd,
+        body,
       ),
+    };
+  }
+
+  /** Borra un contrato creado por error (sin recibos). */
+  @Delete(':contractId')
+  async remove(
+    @Param('companyId') companyId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+  ) {
+    return {
+      contracts: await this.contracts.remove(companyId, employeeId, contractId),
     };
   }
 }
