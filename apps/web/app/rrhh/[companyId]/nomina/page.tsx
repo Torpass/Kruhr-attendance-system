@@ -68,16 +68,16 @@ export default function NominaPage() {
         </div>
         <div className="flex gap-2">
           <Link
-            href={`/rrhh/${companyId}/nomina/catalogo`}
+            href={`/rrhh/${companyId}/configuracion/estructuras`}
             className="inline-flex items-center rounded-lg border border-borde-fuerte bg-white px-4 py-2.5 text-sm font-semibold hover:border-kru-300"
           >
-            Estructuras y parámetros
+            Estructuras salariales
           </Link>
           <Button onClick={() => { create.reset(); setCreating(true); }}>Nuevo lote</Button>
         </div>
       </div>
 
-      <Card className="p-0 sm:p-0">
+      <Card flush>
         {runs.isError ? (
           <div className="p-4"><EmptyState>{errorMessage(runs.error)}</EmptyState></div>
         ) : !runs.data ? (
@@ -111,7 +111,7 @@ export default function NominaPage() {
         {activeStructures.length === 0 ? (
           <div className="flex flex-col gap-3 text-sm">
             <p>El grupo todavía no tiene estructuras salariales.</p>
-            <Link href={`/rrhh/${companyId}/nomina/catalogo`} className="font-semibold text-kru-700 hover:text-kru-800">
+            <Link href={`/rrhh/${companyId}/configuracion/estructuras`} className="font-semibold text-kru-700 hover:text-kru-800">
               Crear una estructura →
             </Link>
           </div>
