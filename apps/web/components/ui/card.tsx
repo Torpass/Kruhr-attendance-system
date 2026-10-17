@@ -1,9 +1,10 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
-export function Card({ className = "", ...props }: HTMLAttributes<HTMLElement>) {
+/** `flush` quita el padding para listas que llegan al borde (un className `p-0` no le gana a `p-4`). */
+export function Card({ className = "", flush = false, ...props }: HTMLAttributes<HTMLElement> & { flush?: boolean }) {
   return (
     <section
-      className={`rounded-2xl border border-borde bg-white p-4 sm:p-6 ${className}`}
+      className={`rounded-2xl border border-borde bg-white ${flush ? "" : "p-4 sm:p-6"} ${className}`}
       {...props}
     />
   );

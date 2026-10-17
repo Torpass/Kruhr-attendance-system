@@ -88,7 +88,7 @@ export default function EquipoPage() {
         </Button>
       </div>
 
-      <Card className="p-0 sm:p-0">
+      <Card flush>
         {staff.isError ? (
           <div className="p-4"><EmptyState>{errorMessage(staff.error)}</EmptyState></div>
         ) : !staff.data ? (

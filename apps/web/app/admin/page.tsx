@@ -82,7 +82,7 @@ export default function AdminPage() {
           <EmptyState>Todavía no hay empresas.</EmptyState>
         ) : (
           groups.data.map((group) => (
-            <Card key={group.id} className="p-0 sm:p-0">
+            <Card key={group.id} flush>
               <div className="flex flex-wrap items-center gap-3 border-b border-borde p-4">
                 <div className="mr-auto">
                   <h2 className="font-semibold">{group.name}</h2>
