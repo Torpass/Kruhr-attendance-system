@@ -10,6 +10,7 @@ import {
   isStaleOpenShift,
   localDateOf,
   startOfLocalDay,
+  weekdayIndex,
   type Period,
   type WorkPolicy,
 } from '@marcaje/core';
@@ -154,19 +155,36 @@ export class AttendanceService {
     return this.classifyOne(closed);
   }
 
-  /** Estado actual y turnos de hoy (hora de Caracas). */
+  /**
+   * Estado actual, turnos de hoy y su horario (hora de Caracas). `schedule` es el horario del
+   * contrato vigente hoy: la jornada de hoy y la semana (lunes a domingo), o `null` sin contrato.
+   */
   async myToday(user: EmployeeSession) {
     const now = new Date();
     const today = localDateOf(now);
-    const [open, shifts] = await Promise.all([
+    const [open, shifts, terms] = await Promise.all([
       this.shifts.findOpen(user.id),
       this.shifts.listForEmployee(
         user.id,
         instantRange({ from: today, to: today }),
       ),
+      this.schedules.contractTerms(user.companyIds[0], {
+        from: today,
+        to: today,
+      }),
     ]);
+    const mine = terms(user.id);
+    const schedule = mine.scheduleOn(today);
+    const week = schedule?.days ?? null;
     return {
       date: today,
+      schedule: mine.hasContract(today)
+        ? {
+            name: schedule?.name ?? null,
+            week: week?.some(Boolean) ? week : null,
+            today: week?.[weekdayIndex(today)] ?? null,
+          }
+        : null,
       openShift: open ? await this.classifyOne(open) : null,
       openShiftIsStale: open ? isStaleOpenShift(open.clockIn, now) : false,
       shifts: await this.classify(shifts),

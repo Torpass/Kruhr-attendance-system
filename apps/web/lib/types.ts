@@ -59,6 +59,12 @@ export type CompanyToday = {
 
 export type MyToday = {
   date: string;
+  /** Horario del contrato vigente hoy; `null` sin contrato. `week` es null sin jornada fija. */
+  schedule: {
+    name: string | null;
+    week: (ScheduleDay | null)[] | null;
+    today: ScheduleDay | null;
+  } | null;
   openShift: Shift | null;
   openShiftIsStale: boolean;
   shifts: Shift[];
