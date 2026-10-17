@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { use, useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/card";
@@ -22,13 +22,17 @@ const KINDS = [
 
 const fieldClass = "rounded-lg border border-borde-fuerte bg-white px-3.5 py-2.5 text-sm";
 
-export default function NominaPage() {
+/** `?nuevo=<tipo>&fecha=<día>` (desde Períodos) abre el diálogo de nuevo lote con ese período. */
+export default function NominaPage({ searchParams }: PageProps<"/rrhh/[companyId]/nomina">) {
+  const query = use(searchParams);
+  const preset = KINDS.find((k) => k.value === query.nuevo)?.value;
+  const presetDate = typeof query.fecha === "string" ? query.fecha : undefined;
   const { companyId } = useParams<{ companyId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const company = useCurrentCompany(companyId);
   const groupId = company?.group.id;
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(Boolean(preset));
 
   const runs = useQuery({
     queryKey: ["companies", companyId, "payroll-runs"],
@@ -128,7 +132,7 @@ export default function NominaPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
                 <span className="rotulo text-gris">Período</span>
-                <select name="kind" className={fieldClass} defaultValue="first_half">
+                <select name="kind" className={fieldClass} defaultValue={preset ?? "first_half"}>
                   {KINDS.map((k) => (
                     <option key={k.value} value={k.value}>{k.label}</option>
                   ))}
@@ -136,7 +140,7 @@ export default function NominaPage() {
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="rotulo text-gris">Un día del período</span>
-                <input type="date" name="date" defaultValue={todayInCaracas()} className={fieldClass} required />
+                <input type="date" name="date" defaultValue={presetDate ?? todayInCaracas()} className={fieldClass} required />
               </label>
             </div>
             <p className="text-[13px] text-gris">
