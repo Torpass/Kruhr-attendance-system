@@ -10,6 +10,7 @@ import {
 import { instantRange } from '../attendance/attendance.service';
 import { ShiftsRepository } from '../attendance/shifts.repository';
 import { EmployeesRepository } from '../employees/employees.repository';
+import { SchedulesService } from '../schedules/schedules.service';
 import type { PeriodQuery } from './periods.schemas';
 
 export const resolvePeriod = (query: PeriodQuery): Period =>
@@ -20,6 +21,7 @@ export class PeriodsService {
   constructor(
     private readonly shifts: ShiftsRepository,
     private readonly employees: EmployeesRepository,
+    private readonly schedules: SchedulesService,
   ) {}
 
   /**
@@ -28,10 +30,12 @@ export class PeriodsService {
    * para que desactivar a alguien a mitad de quincena no le quite horas de la nómina.
    */
   async summary(companyId: string, period: Period) {
-    const [employees, shifts] = await Promise.all([
+    // Semanas completas: las alertas miran también días fuera del período.
+    const window = alertWindow(period);
+    const [employees, shifts, policies] = await Promise.all([
       this.employees.list(companyId),
-      // Semanas completas: las alertas miran también días fuera del período.
-      this.shifts.listForCompany(companyId, instantRange(alertWindow(period))),
+      this.shifts.listForCompany(companyId, instantRange(window)),
+      this.schedules.policiesFor(companyId, window),
     ]);
 
     const byEmployee = new Map<string, ShiftRecord[]>();
@@ -44,7 +48,7 @@ export class PeriodsService {
     const rows = employees
       .map(({ id, cedula, name, active }) => ({
         employee: { id, cedula, name, active },
-        ...summarizePeriod(byEmployee.get(id) ?? [], period),
+        ...summarizePeriod(byEmployee.get(id) ?? [], period, policies(id)),
       }))
       .filter(
         (row) =>

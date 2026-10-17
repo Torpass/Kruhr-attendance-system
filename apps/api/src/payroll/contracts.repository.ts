@@ -3,7 +3,12 @@ import type { Period } from '@marcaje/core';
 import { and, desc, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import { DB } from '../database/database.constants';
 import type { Database } from '../database/database.module';
-import { contracts, employees, salaryStructures } from '../database/schema';
+import {
+  contracts,
+  employees,
+  salaryStructures,
+  workSchedules,
+} from '../database/schema';
 
 const contractColumns = {
   id: contracts.id,
@@ -12,6 +17,7 @@ const contractColumns = {
   dateStart: contracts.dateStart,
   dateEnd: contracts.dateEnd,
   structure: { id: salaryStructures.id, name: salaryStructures.name },
+  schedule: { id: workSchedules.id, name: workSchedules.name },
 };
 
 @Injectable()
@@ -26,6 +32,7 @@ export class ContractsRepository {
         salaryStructures,
         eq(salaryStructures.id, contracts.structureId),
       )
+      .leftJoin(workSchedules, eq(workSchedules.id, contracts.scheduleId))
       .where(
         and(
           eq(contracts.companyId, companyId),

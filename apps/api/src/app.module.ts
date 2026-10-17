@@ -13,6 +13,7 @@ import { DatabaseErrorFilter } from './common/filters/database-error.filter';
 import { EmployeesModule } from './employees/employees.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { PeriodsModule } from './periods/periods.module';
+import { SchedulesModule } from './schedules/schedules.module';
 import { StaffModule } from './staff/staff.module';
 import { validateEnv, type Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
@@ -49,6 +50,7 @@ import { HealthModule } from './health/health.module';
     PeriodsModule,
     StaffModule,
     PayrollModule,
+    SchedulesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

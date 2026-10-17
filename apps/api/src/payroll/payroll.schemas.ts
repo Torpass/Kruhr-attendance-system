@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { localDateSchema } from '../common/schemas';
 import { periodQuerySchema } from '../periods/periods.schemas';
 
-const code = z
+export const code = z
   .string()
   .trim()
   .toUpperCase()
@@ -16,7 +16,7 @@ const code = z
     /^[A-Z][A-Z0-9_]{0,29}$/,
     'Código en mayúsculas, números y _ (ej. HED)',
   );
-const name = z.string().trim().min(1).max(80);
+export const name = z.string().trim().min(1).max(80);
 const amount = z.number().finite().min(-1e11).max(1e11);
 
 export const ruleSchema = z.object({
@@ -71,6 +71,8 @@ export const inputTypeSchema = z.object({ code, name });
 export const createContractSchema = z
   .object({
     structureId: z.uuid(),
+    /** Horario con el que se calculan sus turnos; sin horario, la política por defecto. */
+    scheduleId: z.uuid().nullable().default(null),
     wage: z.number().positive().max(1e11),
     dateStart: localDateSchema,
     dateEnd: localDateSchema.nullable().default(null),
