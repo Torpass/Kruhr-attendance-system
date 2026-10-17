@@ -1,19 +1,11 @@
+import { DEFAULT_POLICY } from "@marcaje/core";
 import type { WorkSchedule } from "./types";
 
 export const WEEKDAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
-/** Política sin horario asignado: la regla del enunciado (espejo de `DEFAULT_POLICY` en core). */
-export const DEFAULT_SCHEDULE: Omit<WorkSchedule, "id" | "code" | "name" | "active"> = {
-  overtimeMode: "duration",
-  ordinaryMinutes: 480,
-  days: null,
-  breakMinutes: 0,
-  breakAfterMinutes: 300,
-  nightStart: "19:00",
-  nightEnd: "05:00",
-  weeklyOvertimeAlertMinutes: 600,
-};
+/** Política sin horario asignado: la regla del enunciado, la misma del motor. */
+export const DEFAULT_SCHEDULE: Omit<WorkSchedule, "id" | "code" | "name" | "active"> = DEFAULT_POLICY;
 
 /** 450 → "7,5 h"; 480 → "8 h". */
 export const hoursLabel = (minutes: number) =>
