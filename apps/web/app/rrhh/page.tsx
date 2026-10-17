@@ -14,7 +14,7 @@ export default function RrhhIndex() {
     if (!companies?.length) return;
     const remembered = lastCompany();
     const target = companies.find((c) => c.id === remembered) ?? companies[0];
-    router.replace(`/rrhh/${target.id}/hoy`);
+    router.replace(`/rrhh/${target.id}`);
   }, [companies, router]);
 
   return (

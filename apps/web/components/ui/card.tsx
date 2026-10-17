@@ -14,10 +14,13 @@ export function Stat({
   label,
   value,
   tone = "neutral",
+  hint,
 }: {
   label: string;
   value: ReactNode;
   tone?: "neutral" | "marca" | "alerta";
+  /** Contexto corto bajo la cifra (p. ej. "de 12 activos"). */
+  hint?: ReactNode;
 }) {
   const tones = {
     neutral: "border-borde bg-white",
@@ -30,6 +33,7 @@ export function Stat({
       <p className="mt-2 text-[1.75rem] font-bold leading-none tracking-[-0.02em] tabular-nums">
         {value}
       </p>
+      {hint && <p className="mt-1.5 text-[13px] text-gris">{hint}</p>}
     </div>
   );
 }
