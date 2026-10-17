@@ -82,7 +82,13 @@ El seed es idempotente: si lo vuelves a correr, actualiza las claves. Crea estos
 | colaboradora de A Norte y A Sur (elige la empresa al entrar) | cédula `12345678` | PIN `SEED_DEMO_PIN` |
 | admin de la empresa B | `admin@empresa-b.test` | `SEED_DEMO_PASSWORD` |
 
-Si `DATABASE_URL` apunta a Supabase, `pnpm db:migrate` y `pnpm db:seed` actúan sobre producción. Para usar la base local, anteponles `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/marcaje`: la variable de entorno tiene prioridad sobre `.env`.
+Para recorrer la app con datos, carga además la demo: 8 colaboradores más en las tres empresas (mismo PIN `SEED_DEMO_PIN`), con horarios, contratos y marcajes desde hace cuatro semanas. Cubren extra diurna y nocturna, turnos que cruzan la medianoche, la alerta semanal, correcciones con motivo y los tres estados de "Hoy". Se puede repetir: regenera los turnos de los colaboradores de demo, no toca los días de lotes validados o pagados y a Ana solo le agrega días vacíos. Córrela el día de la demo, porque "Hoy" depende de la hora en que corre.
+
+```bash
+pnpm db:seed:demo
+```
+
+Si `DATABASE_URL` apunta a Supabase, `pnpm db:migrate`, `pnpm db:seed` y `pnpm db:seed:demo` actúan sobre producción. Para usar la base local, anteponles `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/marcaje`: la variable de entorno tiene prioridad sobre `.env`.
 
 Para cambiar el esquema, edita `apps/api/src/database/schema.ts` y genera la migración con `pnpm --filter @marcaje/api db:generate`.
 
