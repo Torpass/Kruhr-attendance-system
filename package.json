@@ -10,6 +10,7 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @marcaje/api db:migrate",
     "db:seed": "pnpm --filter @marcaje/api db:seed",
+    "db:seed:demo": "pnpm --filter @marcaje/api db:seed:demo",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
