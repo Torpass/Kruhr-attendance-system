@@ -8,7 +8,7 @@ import {
   startApp,
 } from './fixtures';
 
-/** Equipo de gestión (admin → analistas) y panel del superadmin, contra Postgres real. */
+/** Equipo de gestión (admin → admins y analistas de su alcance) y panel del superadmin, contra Postgres real. */
 describe('Equipo y superadmin (integración)', () => {
   let app: NestExpressApplication;
   const { client, db } = connectTestDatabase();
@@ -77,10 +77,34 @@ describe('Equipo y superadmin (integración)', () => {
       ).toEqual(['A Sur']);
     });
 
-    it('el admin no crea admins, ni asigna empresas que no gestiona o de otro grupo', async () => {
-      await agents.adminA
+    it('el admin crea admins con sus empresas; no asigna empresas que no gestiona o de otro grupo', async () => {
+      const created = await agents.adminA
         .post(staffUrl(ids.groupA))
-        .send({ ...newAnalyst([ids.norte], 'x1@t.test'), role: 'admin' })
+        .send({
+          ...newAnalyst([ids.norte], 'admin-nuevo@t.test'),
+          role: 'admin',
+        })
+        .expect(201);
+      expect(created.body.member).toMatchObject({
+        role: 'admin',
+        companyIds: [ids.norte],
+      });
+      // El admin nuevo entra y gestiona el equipo de su grupo.
+      const newAdmin = await loginStaff(
+        app,
+        'admin-nuevo@t.test',
+        'otra-clave-segura',
+      );
+      await newAdmin.get(staffUrl(ids.groupA)).expect(200);
+      // Pero no toca a un admin que gestiona empresas fuera de su alcance (Sur).
+      await newAdmin
+        .patch(`${staffUrl(ids.groupA)}/${ids.adminA}`)
+        .send({ active: false })
+        .expect(403);
+
+      await agents.analystA
+        .post(staffUrl(ids.groupA))
+        .send({ ...newAnalyst([ids.norte], 'x0@t.test'), role: 'admin' })
         .expect(403);
       await agents.adminB
         .post(staffUrl(ids.groupB))
@@ -112,7 +136,7 @@ describe('Equipo y superadmin (integración)', () => {
       await agents.adminA.patch(url).send({ active: true }).expect(200);
     });
 
-    it('nadie cambia su propio rol ni se desactiva, y el admin no edita a otros admins', async () => {
+    it('nadie cambia su propio rol ni se desactiva; el admin asciende a un analista de su alcance', async () => {
       await agents.adminA
         .patch(`${staffUrl(ids.groupA)}/${ids.adminA}`)
         .send({ active: false })
@@ -120,7 +144,11 @@ describe('Equipo y superadmin (integración)', () => {
       await agents.adminA
         .patch(`${staffUrl(ids.groupA)}/${ids.analystA}`)
         .send({ role: 'admin' })
-        .expect(403);
+        .expect(200);
+      await agents.adminA
+        .patch(`${staffUrl(ids.groupA)}/${ids.analystA}`)
+        .send({ role: 'analyst' })
+        .expect(200);
       await agents.adminB
         .patch(`${staffUrl(ids.groupB)}/${ids.adminA}`)
         .send({ name: 'Intruso' })
