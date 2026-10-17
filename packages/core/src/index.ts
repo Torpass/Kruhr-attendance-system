@@ -1,3 +1,4 @@
+export * from './attendance';
 export * from './csv';
 export * from './dates';
 export * from './period';
