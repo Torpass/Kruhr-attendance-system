@@ -7,10 +7,8 @@ import {
   type LocalDate,
   type Period,
 } from './dates';
+import { DEFAULT_POLICY, type PolicyFor } from './schedule';
 import { computeShift } from './shift';
-
-/** Más de 10 horas extra en una semana genera una alerta (no bloquea nada). */
-export const WEEKLY_OVERTIME_ALERT_MINUTES = 10 * 60;
 
 export interface ShiftRecord {
   clockIn: Date;
@@ -65,10 +63,13 @@ const emptyTotals = (): MinuteTotals => ({
  * - Los totales solo suman los turnos que empiezan dentro del período.
  * - Las alertas miran semanas completas. Para una quincena que corta una semana, hay que
  *   pasar también los turnos de esa semana fuera del período (ver `alertWindow`).
+ * - `policyFor` da la política del horario vigente en cada día (por defecto, la del enunciado):
+ *   cada turno se calcula con la de su día, y el umbral de la alerta es el del lunes de la semana.
  */
 export function summarizePeriod(
   shifts: ShiftRecord[],
   period: Period,
+  policyFor: PolicyFor = () => DEFAULT_POLICY,
   timeZone = CARACAS,
 ): PeriodSummary {
   const totals = emptyTotals();
@@ -91,6 +92,7 @@ export function summarizePeriod(
 
     const minutes = computeShift(
       { clockIn: shift.clockIn, clockOut: shift.clockOut },
+      policyFor(localDateOf(shift.clockIn, timeZone)),
       timeZone,
     );
     if (isWithin(minutes.date, period)) {
@@ -115,7 +117,7 @@ export function summarizePeriod(
     weekEnd: addDays(weekStart, 6),
     overtimeMinutes,
     overtimeHours: minutesToHours(overtimeMinutes),
-    alert: overtimeMinutes > WEEKLY_OVERTIME_ALERT_MINUTES,
+    alert: overtimeMinutes > policyFor(weekStart).weeklyOvertimeAlertMinutes,
   }));
 
   return {
