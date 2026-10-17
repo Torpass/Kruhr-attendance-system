@@ -52,6 +52,22 @@ export const formatTime = (iso: string) => timeFormatter.format(new Date(iso));
 export const formatDay = (localDate: string) =>
   dayFormatter.format(new Date(`${localDate}T00:00:00Z`));
 
+const time12Formatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+/** "1:37 PM" (vista del colaborador, en 12 horas). */
+export const formatTime12 = (iso: string) => time12Formatter.format(new Date(iso));
+
+/** Hora local "HH:MM" de un horario → "8:00 AM". */
+export function clockTime12(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+
 /** Minutos → "10,50" (las horas solo se redondean al mostrarlas). */
 export const formatHours = (minutes: number) =>
   hoursFormatter.format(Math.round((minutes * 100) / 60) / 100);

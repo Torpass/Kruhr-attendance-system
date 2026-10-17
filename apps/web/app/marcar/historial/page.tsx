@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, EmptyState } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { addDays, formatDay, formatHours, formatTime, todayInCaracas } from "@/lib/time";
+import { addDays, formatDay, formatHours, formatTime12, todayInCaracas } from "@/lib/time";
 import type { Shift } from "@/lib/types";
 
 const DAYS = 30;
@@ -62,7 +62,7 @@ export default function HistorialPage() {
                     )}
                   </div>
                   <p className="mt-1 text-gris tabular-nums">
-                    {formatTime(shift.clockIn)} → {shift.clockOut ? formatTime(shift.clockOut) : "…"}
+                    {formatTime12(shift.clockIn)} → {shift.clockOut ? formatTime12(shift.clockOut) : "…"}
                     {shift.minutes && shift.minutes.overtimeDay + shift.minutes.overtimeNight > 0 && (
                       <> · {formatHours(shift.minutes.overtimeDay + shift.minutes.overtimeNight)} h extra</>
                     )}

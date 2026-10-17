@@ -1,8 +1,10 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type TestAgent from 'supertest/lib/agent';
 import * as schema from '../src/database/schema';
+import { localDateOf, weekdayIndex } from '@marcaje/core';
 import {
   connectTestDatabase,
+  loginEmployee,
   loginStaff,
   seedTenants,
   startApp,
@@ -132,5 +134,21 @@ describe('Control de horario (integración)', () => {
 
   it('otra empresa no ve el control de horario', async () => {
     await agents.adminB.get(url()).expect(404);
+  });
+
+  it('el colaborador ve su horario: la jornada de hoy y su semana', async () => {
+    const luis = await loginEmployee(app, '87654321');
+    const res = await luis.get('/api/me/today').expect(200);
+    const week = [office, office, office, office, office, null, null];
+    expect(res.body.schedule).toEqual({
+      name: 'Oficina',
+      week,
+      today: week[weekdayIndex(localDateOf(new Date()))],
+    });
+
+    // Ana no tiene contrato: no hay horario que mostrar.
+    const ana = await loginEmployee(app, '12345678', ids.norte);
+    const mine = await ana.get('/api/me/today').expect(200);
+    expect(mine.body.schedule).toBeNull();
   });
 });

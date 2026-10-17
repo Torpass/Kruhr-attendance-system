@@ -89,6 +89,8 @@ export class SchedulesService {
         );
       return {
         hasContract: (date: LocalDate) => Boolean(contractOn(date)),
+        /** Horario del contrato vigente ese día (`null`: sin contrato o regla general). */
+        scheduleOn: (date: LocalDate) => contractOn(date)?.schedule ?? null,
         policyFor: (date: LocalDate) => {
           const schedule = contractOn(date)?.schedule;
           return schedule ? toPolicy(schedule) : DEFAULT_POLICY;
