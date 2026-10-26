@@ -1,0 +1,1 @@
+ALTER TABLE "employees" RENAME COLUMN "pin_hash" TO "password_hash";

@@ -49,7 +49,7 @@ export default function ColaboradoresPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.025em]">Colaboradores</h1>
           <p className="mt-1 text-sm text-gris">
-            Entran a marcar con su cédula y un PIN de 4 a 6 dígitos.
+            Entran a marcar con su cédula y su contraseña.
           </p>
         </div>
         <Button onClick={() => { create.reset(); setCreating(true); }}>Nuevo colaborador</Button>
@@ -98,13 +98,17 @@ export default function ColaboradoresPage() {
           <Input label="Nombre y apellido" name="name" autoComplete="off" required minLength={2} />
           <Input label="Cédula" name="cedula" inputMode="numeric" placeholder="12345678" required />
           <Input
-            label="PIN inicial"
-            name="pin"
-            inputMode="numeric"
-            pattern="\d{4,6}"
-            title="De 4 a 6 dígitos"
+            label="Contraseña inicial"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={10}
+            title="Al menos 10 caracteres"
             required
           />
+          <p className="-mt-2 text-[13px] text-gris">
+            Al menos 10 caracteres. El colaborador puede cambiarla al entrar.
+          </p>
           {create.isError && (
             <p role="alert" className="rounded-lg bg-error-fondo px-3.5 py-2.5 text-sm text-error-texto">
               {errorMessage(create.error)}

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -13,19 +14,22 @@ import type { CookieOptions, Response } from 'express';
 import type { Env } from '../config/env';
 import { CurrentUser } from '../common/auth/current-user.decorator';
 import { Public } from '../common/auth/public.decorator';
+import { Roles } from '../common/auth/roles.decorator';
 import { SESSION_COOKIE, type SessionUser } from '../common/auth/session';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
+  changePasswordSchema,
   employeeLoginSchema,
   registerSchema,
   staffLoginSchema,
+  type ChangePasswordInput,
   type EmployeeLoginInput,
   type RegisterInput,
   type StaffLoginInput,
 } from './auth.schemas';
 import { AuthService, type OpenedSession } from './auth.service';
 
-// Límite por cuenta además del límite por IP: frena la fuerza bruta de un PIN desde muchas IPs.
+// Límite por cuenta además del límite por IP: frena la fuerza bruta de una contraseña desde muchas IPs.
 // El de IP es holgado porque un turno completo puede entrar a la vez desde el Wi-Fi de la empresa.
 // La clave se normaliza igual que la validación, para que "V-12.345.678" y "12345678" cuenten juntos.
 const bodyField =
@@ -70,6 +74,20 @@ export class AuthController {
     // Trabaja en varias empresas: el cliente muestra las opciones y repite con companyId.
     if ('companies' in result) return result;
     return this.startSession(res, result);
+  }
+
+  @Roles('employee')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('employee/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changeEmployeePassword(
+    @CurrentUser() user: SessionUser,
+    @Body(new ZodValidationPipe(changePasswordSchema))
+    body: ChangePasswordInput,
+  ) {
+    // RolesGuard ya lo garantiza; esto solo estrecha el tipo.
+    if (user.kind !== 'employee') throw new ForbiddenException();
+    await this.auth.changeEmployeePassword(user, body);
   }
 
   @Public()

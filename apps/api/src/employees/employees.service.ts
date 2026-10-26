@@ -25,12 +25,12 @@ export class EmployeesService {
     return employee;
   }
 
-  async create(companyId: string, { pin, ...input }: CreateEmployeeInput) {
+  async create(companyId: string, { password, ...input }: CreateEmployeeInput) {
     try {
       return await this.employees.create({
         ...input,
         companyId,
-        pinHash: await hashSecret(pin),
+        passwordHash: await hashSecret(password),
       });
     } catch (error) {
       if (pgError(error)?.code === PG_UNIQUE_VIOLATION) {
@@ -43,12 +43,15 @@ export class EmployeesService {
   }
 
   async update(companyId: string, id: string, input: UpdateEmployeeInput) {
-    const { pin, ...changes } = input;
-    const employee = await this.employees.update(companyId, id, {
-      ...changes,
-      ...(pin !== undefined && { pinHash: await hashSecret(pin) }),
-    });
+    const employee = await this.employees.update(companyId, id, input);
     if (!employee) throw new NotFoundException('Colaborador no encontrado');
     return employee;
+  }
+
+  async setPassword(companyId: string, id: string, password: string) {
+    const employee = await this.employees.update(companyId, id, {
+      passwordHash: await hashSecret(password),
+    });
+    if (!employee) throw new NotFoundException('Colaborador no encontrado');
   }
 }

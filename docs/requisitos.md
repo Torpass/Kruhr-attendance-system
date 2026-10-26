@@ -84,12 +84,13 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 | Ruta | Rol | Casos de uso |
 | --- | --- | --- |
 | `/registro` | público | Una empresa se registra: crea el grupo, su primera empresa y su admin |
-| `/login` | público | **Colaborador:** cédula + PIN; si trabaja en varias empresas, elige en cuál va a marcar. **Gestión:** correo + contraseña |
+| `/login` | público | **Colaborador:** cédula + contraseña; si trabaja en varias empresas, elige en cuál va a marcar. **Gestión:** correo + contraseña |
 | `/marcar` | employee | Marcar entrada o salida (la hora la pone el servidor) y ver los turnos de hoy |
 | `/marcar/historial` | employee | Su historial de turnos |
+| `/marcar/contrasena` | employee | Cambiar su contraseña (pide la actual). Se cambia en todas las empresas donde la actual coincide |
 | `/rrhh/hoy` | admin, analyst | KPIs del día y tres listas: **Dentro**, **No ha marcado** y **Sin salida**. Selector de empresa |
-| `/rrhh/colaboradores` | admin, analyst | Lista de colaboradores, alta (nombre, cédula y PIN inicial) y desactivación |
-| `/rrhh/colaboradores/:id` | admin, analyst | Ficha con sus turnos. Corregir un turno o crear uno manual, siempre con motivo |
+| `/rrhh/colaboradores` | admin, analyst | Lista de colaboradores, alta (nombre, cédula y contraseña inicial) y desactivación |
+| `/rrhh/colaboradores/:id` | admin, analyst | Ficha con sus turnos. Asignar una contraseña nueva si la olvidó. Corregir un turno o crear uno manual, siempre con motivo |
 | `/rrhh/periodos` | admin, analyst | Elegir semana, 1.ª o 2.ª quincena, o un rango. Tabla de horas con alerta si hay más de 10 h extra en una semana. Exportar CSV |
 | `/rrhh/<empresa>/equipo` | admin, superadmin | Equipo de gestión del grupo: el admin da de alta admins y analistas y les asigna empresas que él gestiona; el superusuario, en cualquier grupo. Nadie se cambia su propio rol ni se desactiva |
 | `/admin` | superadmin | Grupos y empresas (crear, RIF, activar o desactivar), con acceso al RRHH y al equipo de cada una |
@@ -185,7 +186,7 @@ users             id, role (superadmin|admin|analyst), group_id?, name, email UN
                   CHECK (role = 'superadmin') = (group_id IS NULL) · CHECK email en minúsculas
 user_companies    (user_id, company_id) PK, group_id
                   FK (user_id, group_id) → users · FK (company_id, group_id) → companies   ← mismo grupo
-employees         id, company_id → companies, cedula, name, pin_hash, active, hired_on?
+employees         id, company_id → companies, cedula, name, password_hash, active, hired_on?
                   UNIQUE (company_id, cedula) · CHECK cédula de 5 a 10 dígitos
 shifts            id, company_id, employee_id, clock_in, clock_out?, created_at, updated_at
                   FK (employee_id, company_id) → employees    ← el turno es de la empresa del colaborador
@@ -197,8 +198,8 @@ shift_corrections id, shift_id, company_id, corrected_by → users, reason, befo
 ```
 
 **Decisiones**
-- **Los colaboradores están separados de los usuarios de gestión**, como `hr.employee` y `res.users` en Odoo. Son dos formas de entrar: los colaboradores no tienen correo y entran con cédula + PIN.
-- **Una persona puede trabajar en varias empresas:** tiene un registro de colaborador en cada una (`UNIQUE (company_id, cedula)`). Al entrar con cédula + PIN elige en cuál marca, y la sesión queda atada a ese registro. La lista de empresas solo se muestra después de validar el PIN, para no revelar quiénes son los clientes.
+- **Los colaboradores están separados de los usuarios de gestión**, como `hr.employee` y `res.users` en Odoo. Son dos formas de entrar: los colaboradores no tienen correo y entran con cédula + contraseña.
+- **Una persona puede trabajar en varias empresas:** tiene un registro de colaborador en cada una (`UNIQUE (company_id, cedula)`). Al entrar con cédula + contraseña elige en cuál marca, y la sesión queda atada a ese registro. La lista de empresas solo se muestra después de validar la contraseña, para no revelar quiénes son los clientes.
 - **Las FKs compuestas impiden mezclar datos entre empresas o grupos desde la base**, no solo desde la API.
 - **`btree_gist`** se instala en el esquema `extensions`, que es la convención de Supabase.
 - **El superadmin no tiene filas en `user_companies`:** accede a todo.
@@ -244,11 +245,15 @@ Las líneas copian el código y el nombre de la regla. Así el recibo histórico
 | Endpoint | Quién | Credenciales |
 | --- | --- | --- |
 | `POST /api/auth/staff/login` | superadmin, admin, analista | correo + contraseña |
-| `POST /api/auth/employee/login` | colaborador | cédula (acepta `V-12.345.678`) + PIN de 4 a 6 dígitos. Si el PIN coincide en varias empresas, responde `{ companies }` sin abrir sesión, y el cliente repite con `companyId` |
+| `POST /api/auth/employee/login` | colaborador | cédula (acepta `V-12.345.678`) + contraseña. Si coincide en varias empresas, responde `{ companies }` sin abrir sesión, y el cliente repite con `companyId` |
+| `POST /api/auth/employee/password` | colaborador | contraseña actual + nueva. Cambia en todas sus empresas donde la actual coincide |
+| `PUT /api/companies/:id/employees/:id/password` | admin, analista | contraseña nueva para ese colaborador en esa empresa |
 | `POST /api/auth/logout` · `GET /api/auth/me` | sesión | cookie `httpOnly` |
 
-- **Hash:** contraseñas y PIN usan Argon2id con los parámetros de OWASP. Si la cuenta no existe, igual se verifica contra un hash de relleno, así el tiempo de respuesta no revela qué cuentas existen.
+- **Contraseñas:** las nuevas tienen al menos 10 caracteres (letras, números o símbolos), igual para gestión y colaboradores. Al entrar no se valida el formato, así que los PIN numéricos de antes siguen sirviendo hasta que se cambien.
+- **Hash:** todas las contraseñas usan Argon2id con los parámetros de OWASP. Si la cuenta no existe, igual se verifica contra un hash de relleno, así el tiempo de respuesta no revela qué cuentas existen.
 - **JWT:** solo lleva `{sub, kind}`. El rol, el grupo y las empresas se leen de la base en cada request.
 - **Límite de intentos:**
   - 30 por minuto por IP: un turno completo puede entrar al mismo tiempo desde el Wi-Fi de la empresa.
-  - 5 por minuto **por cuenta** (correo, o cédula normalizada a dígitos): frena la fuerza bruta del PIN desde muchas IPs.
+  - 5 por minuto **por cuenta** (correo, o cédula normalizada a dígitos): frena la fuerza bruta de una contraseña desde muchas IPs.
+  - 5 por minuto por IP al cambiar la contraseña del colaborador.

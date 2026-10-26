@@ -4,23 +4,31 @@ import {
   companyCodeSchema,
   passwordSchema,
   personNameSchema,
-  pinSchema,
   slugify,
 } from '../common/schemas';
 
+// Al entrar no se exige el formato de una contraseña nueva: las reglas pueden cambiar
+// y las claves ya guardadas deben seguir sirviendo.
+const currentPasswordSchema = z.string().min(1).max(200);
+
 export const staffLoginSchema = z.object({
   email: z.email().trim().toLowerCase(),
-  password: z.string().min(1).max(200),
+  password: currentPasswordSchema,
 });
 
 /**
- * El colaborador entra con cédula y PIN. Si trabaja en varias empresas, la API devuelve
- * las opciones y el cliente repite el login con `companyId`.
+ * El colaborador entra con cédula y contraseña. Si trabaja en varias empresas, la API
+ * devuelve las opciones y el cliente repite el login con `companyId`.
  */
 export const employeeLoginSchema = z.object({
   cedula: cedulaSchema,
-  pin: pinSchema,
+  password: currentPasswordSchema,
   companyId: z.uuid().optional(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: currentPasswordSchema,
+  newPassword: passwordSchema,
 });
 
 /** Registro público: crea el grupo, su primera empresa y el admin. */
@@ -44,3 +52,4 @@ export const registerSchema = z
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type StaffLoginInput = z.infer<typeof staffLoginSchema>;
 export type EmployeeLoginInput = z.infer<typeof employeeLoginSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -9,6 +10,7 @@ import { AuthRepository } from './auth.repository';
 import { rethrowSlugConflict } from '../companies/companies.repository';
 import { pgError, PG_UNIQUE_VIOLATION } from '../database/pg-error';
 import type {
+  ChangePasswordInput,
   EmployeeLoginInput,
   RegisterInput,
   StaffLoginInput,
@@ -43,21 +45,15 @@ export class AuthService {
   }
 
   /**
-   * Colaborador: cédula y PIN. Si el PIN coincide en varias empresas y no eligió una,
-   * devuelve las opciones sin abrir sesión. Las empresas solo se revelan con el PIN correcto.
+   * Colaborador: cédula y contraseña. Si coincide en varias empresas y no eligió una,
+   * devuelve las opciones sin abrir sesión. Las empresas solo se revelan con la contraseña correcta.
    */
   async loginEmployee({
     cedula,
-    pin,
+    password,
     companyId,
   }: EmployeeLoginInput): Promise<EmployeeLoginResult> {
-    const accounts = await this.repo.findEmployeeCredentials(cedula);
-    const checks = await Promise.all(
-      accounts.length > 0
-        ? accounts.map((account) => verifySecret(account.pinHash, pin))
-        : [verifySecret(undefined, pin)],
-    );
-    const matches = accounts.filter((_, index) => checks[index]);
+    const matches = await this.employeeAccountsMatching(cedula, password);
 
     const chosen = companyId
       ? matches.find((account) => account.company.id === companyId)
@@ -71,7 +67,28 @@ export class AuthService {
     if (matches.length > 1 && !companyId) {
       return { companies: matches.map((account) => account.company) };
     }
-    throw new UnauthorizedException('Cédula o PIN incorrectos');
+    throw new UnauthorizedException('Cédula o contraseña incorrectas');
+  }
+
+  /**
+   * El colaborador cambia su contraseña. Se actualiza en todas las empresas donde
+   * la actual coincide, para que el login le siga ofreciendo las mismas empresas.
+   */
+  async changeEmployeePassword(
+    { id, cedula }: { id: string; cedula: string },
+    { currentPassword, newPassword }: ChangePasswordInput,
+  ) {
+    const matches = await this.employeeAccountsMatching(
+      cedula,
+      currentPassword,
+    );
+    if (!matches.some((account) => account.id === id)) {
+      throw new BadRequestException('La contraseña actual no es correcta');
+    }
+    await this.repo.setEmployeePasswordHash(
+      matches.map((account) => account.id),
+      await hashSecret(newPassword),
+    );
   }
 
   /** Una empresa se registra: grupo, primera empresa y su admin, con la sesión ya abierta. */
@@ -109,6 +126,19 @@ export class AuthService {
     return token.kind === 'staff'
       ? this.repo.findStaffSession(token.sub)
       : this.repo.findEmployeeSession(token.sub);
+  }
+
+  /** Registros de la cédula cuya contraseña coincide. Sin registros, igual verifica (tiempo constante). */
+  private async employeeAccountsMatching(cedula: string, password: string) {
+    const accounts = await this.repo.findEmployeeCredentials(cedula);
+    const checks = await Promise.all(
+      accounts.length > 0
+        ? accounts.map((account) =>
+            verifySecret(account.passwordHash, password),
+          )
+        : [verifySecret(undefined, password)],
+    );
+    return accounts.filter((_, index) => checks[index]);
   }
 
   private async openSession(token: SessionToken): Promise<OpenedSession> {

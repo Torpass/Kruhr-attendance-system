@@ -10,7 +10,7 @@ import type { Response } from 'express';
 
 /**
  * Errores de base que nadie tradujo a una respuesta HTTP.
- * El mensaje de Drizzle trae los parámetros de la consulta (pueden ser hashes de PIN o
+ * El mensaje de Drizzle trae los parámetros de la consulta (pueden ser hashes de
  * contraseñas), así que solo se registra la causa de Postgres y el cliente recibe un 500 genérico.
  */
 @Catch(DrizzleQueryError)

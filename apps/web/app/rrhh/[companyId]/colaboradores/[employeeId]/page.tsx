@@ -42,7 +42,7 @@ export default function EmployeePage() {
   const [to, setTo] = useState(todayInCaracas);
   const [from, setFrom] = useState(() => addDays(todayInCaracas(), -13));
   const [editing, setEditing] = useState<Editing>(null);
-  const [resettingPin, setResettingPin] = useState(false);
+  const [settingPassword, setSettingPassword] = useState(false);
 
   const employee = useQuery({
     queryKey: ["companies", companyId, "employees", employeeId],
@@ -61,12 +61,17 @@ export default function EmployeePage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["companies", companyId] });
 
   const update = useMutation({
-    mutationFn: (body: { active?: boolean; pin?: string }) =>
+    mutationFn: (body: { active: boolean }) =>
       api(`/companies/${companyId}/employees/${employeeId}`, { method: "PATCH", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      setResettingPin(false);
-      void invalidate();
-    },
+    onSuccess: () => void invalidate(),
+  });
+  const setPassword = useMutation({
+    mutationFn: (password: string) =>
+      api(`/companies/${companyId}/employees/${employeeId}/password`, {
+        method: "PUT",
+        body: JSON.stringify({ password }),
+      }),
+    onSuccess: () => setSettingPassword(false),
   });
 
   const openEditor = (next: Editing) => setEditing(next);
@@ -89,11 +94,11 @@ export default function EmployeePage() {
           <p className="text-sm text-gris tabular-nums">C.I. {person.cedula}</p>
         </div>
         {person.active ? <Badge tone="exito">Activo</Badge> : <Badge tone="error">Inactivo</Badge>}
-        {isAdmin && (
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => { update.reset(); setResettingPin(true); }}>
-              Restablecer PIN
-            </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => { setPassword.reset(); setSettingPassword(true); }}>
+            Asignar contraseña
+          </Button>
+          {isAdmin && (
             <Button
               variant="secondary"
               disabled={update.isPending}
@@ -101,8 +106,14 @@ export default function EmployeePage() {
             >
               {person.active ? "Desactivar" : "Reactivar"}
             </Button>
-          </div>
+          )}
+        </div>
+        {setPassword.isSuccess && (
+          <p role="status" className="w-full text-sm text-exito">
+            Contraseña actualizada.
+          </p>
         )}
+        {update.isError && <div className="w-full"><ErrorBox error={update.error} /></div>}
       </Card>
 
       <ContractsCard companyId={companyId} employeeId={employeeId} />
@@ -199,19 +210,30 @@ export default function EmployeePage() {
         )}
       </Dialog>
 
-      <Dialog open={resettingPin} onClose={() => setResettingPin(false)} title="Restablecer PIN">
+      <Dialog open={settingPassword} onClose={() => setSettingPassword(false)} title="Asignar contraseña">
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            update.mutate({ pin: String(new FormData(event.currentTarget).get("pin")) });
+            setPassword.mutate(String(new FormData(event.currentTarget).get("password")));
           }}
           className="flex flex-col gap-4"
         >
-          <Input label="PIN nuevo" name="pin" inputMode="numeric" pattern="\d{4,6}" title="De 4 a 6 dígitos" required />
-          {update.isError && <ErrorBox error={update.error} />}
+          <Input
+            label="Contraseña nueva"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={10}
+            title="Al menos 10 caracteres"
+            required
+          />
+          <p className="-mt-2 text-[13px] text-gris">
+            Al menos 10 caracteres. Reemplaza la actual solo en esta empresa.
+          </p>
+          {setPassword.isError && <ErrorBox error={setPassword.error} />}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setResettingPin(false)}>Cancelar</Button>
-            <Button type="submit" disabled={update.isPending}>Guardar</Button>
+            <Button type="button" variant="secondary" onClick={() => setSettingPassword(false)}>Cancelar</Button>
+            <Button type="submit" disabled={setPassword.isPending}>Guardar</Button>
           </div>
         </form>
       </Dialog>

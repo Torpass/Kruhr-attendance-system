@@ -4,7 +4,7 @@ import { DB } from '../database/database.constants';
 import type { Database } from '../database/database.module';
 import { employees } from '../database/schema';
 
-/** Columnas públicas: el hash del PIN nunca sale del repositorio. */
+/** Columnas públicas: el hash de la contraseña nunca sale del repositorio. */
 const publicColumns = {
   id: employees.id,
   companyId: employees.companyId,
@@ -64,7 +64,7 @@ export class EmployeesRepository {
     changes: Partial<
       Pick<
         typeof employees.$inferInsert,
-        'name' | 'pinHash' | 'active' | 'hiredOn'
+        'name' | 'passwordHash' | 'active' | 'hiredOn'
       >
     >,
   ): Promise<Employee | undefined> {

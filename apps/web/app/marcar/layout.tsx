@@ -16,9 +16,14 @@ export default function MarcarLayout({ children }: LayoutProps<"/marcar">) {
           <Link href="/marcar" aria-label="Inicio">
             <Logo />
           </Link>
-          <Button variant="secondary" onClick={() => void logout()}>
-            Salir
-          </Button>
+          <div className="flex items-center gap-3">
+            <Link href="/marcar/contrasena" className="text-sm font-semibold text-kru-700 hover:text-kru-800">
+              Contraseña
+            </Link>
+            <Button variant="secondary" onClick={() => void logout()}>
+              Salir
+            </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-md flex-1 px-4 py-6">

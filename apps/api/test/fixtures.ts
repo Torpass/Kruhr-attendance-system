@@ -14,10 +14,10 @@ import { TEST_DATABASE_URL } from './test-database';
 /**
  * Datos y helpers de los e2e de integración (Postgres real, base `marcaje_test`).
  * Grupo A (A Norte, A Sur), grupo B (B), superadmin, admins A y B, analista A (solo Norte),
- * Ana (Norte y Sur), Luis (Norte) y Bea (B). Todas las claves son PASSWORD y todos los PIN, PIN.
+ * Ana (Norte y Sur), Luis (Norte) y Bea (B). El personal entra con PASSWORD y los colaboradores con EMPLOYEE_PASSWORD.
  */
 export const PASSWORD = 'clave-de-pruebas';
-export const PIN = '4321';
+export const EMPLOYEE_PASSWORD = 'clave-colaborador';
 
 export type TestDatabase = ReturnType<typeof connectTestDatabase>['db'];
 
@@ -30,9 +30,9 @@ export async function seedTenants(db: TestDatabase) {
   await db.execute(
     sql`truncate shift_corrections, shifts, employees, user_companies, users, companies, company_groups cascade`,
   );
-  const [passwordHash, pinHash] = await Promise.all([
+  const [passwordHash, employeeHash] = await Promise.all([
     hashSecret(PASSWORD),
-    hashSecret(PIN),
+    hashSecret(EMPLOYEE_PASSWORD),
   ]);
 
   const [groupA, groupB] = await db
@@ -91,10 +91,30 @@ export async function seedTenants(db: TestDatabase) {
   const [ana, anaSur, luis, bea] = await db
     .insert(schema.employees)
     .values([
-      { companyId: norte.id, cedula: '12345678', name: 'Ana Pérez', pinHash },
-      { companyId: sur.id, cedula: '12345678', name: 'Ana Pérez', pinHash },
-      { companyId: norte.id, cedula: '87654321', name: 'Luis Gil', pinHash },
-      { companyId: b.id, cedula: '11111111', name: 'Bea Ruiz', pinHash },
+      {
+        companyId: norte.id,
+        cedula: '12345678',
+        name: 'Ana Pérez',
+        passwordHash: employeeHash,
+      },
+      {
+        companyId: sur.id,
+        cedula: '12345678',
+        name: 'Ana Pérez',
+        passwordHash: employeeHash,
+      },
+      {
+        companyId: norte.id,
+        cedula: '87654321',
+        name: 'Luis Gil',
+        passwordHash: employeeHash,
+      },
+      {
+        companyId: b.id,
+        cedula: '11111111',
+        name: 'Bea Ruiz',
+        passwordHash: employeeHash,
+      },
     ])
     .returning();
 
@@ -146,7 +166,7 @@ export async function loginEmployee(
   const agent = request.agent(app.getHttpServer());
   const res = await agent
     .post('/api/auth/employee/login')
-    .send({ cedula, pin: PIN, companyId })
+    .send({ cedula, password: EMPLOYEE_PASSWORD, companyId })
     .expect(200);
   expect(res.body).toHaveProperty('user');
   return agent;
