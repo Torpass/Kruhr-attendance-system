@@ -35,7 +35,7 @@ Ya está listo:
 - **Nómina (fase B):**
   - catálogo por grupo: estructuras con reglas de tipos fijos, parámetros por fecha y entradas manuales, con una estructura de referencia "Quincenal VE" instalable;
   - contratos por colaborador;
-  - lotes por empresa (calcular → validar → pagar) que toman las horas de KruHr y bloquean las correcciones del período al validarse;
+  - lotes por empresa (calcular → validar → pagar) que toman las horas de KruHr y, al validarse, bloquean las correcciones del período de quienes tienen recibo;
   - recibos imprimibles en `/marcar/recibos`.
 - **PWA instalable** (`manifest.webmanifest`), que abre en `/panel` y manda a cada quien a su pantalla.
 - **`/api/health`**, que hace `select 1` contra la base.
