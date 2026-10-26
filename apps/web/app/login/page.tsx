@@ -22,10 +22,10 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("employee");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  // Colaborador con varias empresas: guarda cédula y PIN mientras elige dónde marcar.
+  // Colaborador con varias empresas: guarda cédula y contraseña mientras elige dónde marcar.
   const [choice, setChoice] = useState<{
     cedula: string;
-    pin: string;
+    password: string;
     companies: Company[];
   } | null>(null);
 
@@ -46,14 +46,14 @@ export default function LoginPage() {
     }
   }
 
-  function loginEmployee(cedula: string, pin: string, companyId?: string) {
+  function loginEmployee(cedula: string, password: string, companyId?: string) {
     return run(async () => {
       const result = await api<EmployeeLoginResponse>("/auth/employee/login", {
         method: "POST",
-        body: JSON.stringify({ cedula, pin, companyId }),
+        body: JSON.stringify({ cedula, password, companyId }),
       });
       if ("companies" in result) {
-        setChoice({ cedula, pin, companies: result.companies });
+        setChoice({ cedula, password, companies: result.companies });
         setPending(false);
         return;
       }
@@ -65,7 +65,7 @@ export default function LoginPage() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     if (mode === "employee") {
-      void loginEmployee(String(form.get("cedula")), String(form.get("pin")));
+      void loginEmployee(String(form.get("cedula")), String(form.get("password")));
       return;
     }
     void run(async () => {
@@ -107,7 +107,7 @@ export default function LoginPage() {
                     size="lg"
                     disabled={pending}
                     className="w-full justify-start"
-                    onClick={() => void loginEmployee(choice.cedula, choice.pin, company.id)}
+                    onClick={() => void loginEmployee(choice.cedula, choice.password, company.id)}
                   >
                     {company.name}
                   </Button>
@@ -164,37 +164,28 @@ export default function LoginPage() {
               className="mt-5 flex flex-col gap-4"
             >
               {mode === "employee" ? (
-                <>
-                  <Input
-                    label="Cédula"
-                    name="cedula"
-                    inputMode="numeric"
-                    autoComplete="username"
-                    placeholder="12345678"
-                    required
-                  />
-                  <Input
-                    label="PIN"
-                    name="pin"
-                    type="password"
-                    inputMode="numeric"
-                    autoComplete="current-password"
-                    pattern="\d{4,6}"
-                    title="De 4 a 6 dígitos"
-                    required
-                  />
-                </>
+                <Input
+                  label="Cédula"
+                  name="cedula"
+                  inputMode="numeric"
+                  autoComplete="username"
+                  placeholder="12345678"
+                  required
+                />
               ) : (
-                <>
-                  <Input label="Correo" name="email" type="email" autoComplete="username" required />
-                  <Input
-                    label="Contraseña"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                  />
-                </>
+                <Input label="Correo" name="email" type="email" autoComplete="username" required />
+              )}
+              <Input
+                label="Contraseña"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+              {mode === "employee" && (
+                <p className="-mt-2 text-[13px] text-gris">
+                  ¿La olvidaste? Pide a RRHH que te asigne una nueva.
+                </p>
               )}
               {errorBox}
               <Button type="submit" size="lg" disabled={pending} className="mt-2 w-full">
