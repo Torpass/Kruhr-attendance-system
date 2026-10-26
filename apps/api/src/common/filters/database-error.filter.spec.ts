@@ -14,7 +14,7 @@ describe('DatabaseErrorFilter', () => {
     } as unknown as ArgumentsHost;
 
     const error = new DrizzleQueryError(
-      'insert into employees (pin_hash) values ($1)',
+      'insert into employees (password_hash) values ($1)',
       ['$argon2id$secreto'],
       new Error('connection terminated'),
     );

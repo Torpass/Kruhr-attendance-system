@@ -23,7 +23,6 @@ const seedEnv = z.object({
   SEED_SUPERADMIN_EMAIL: z.email().trim().toLowerCase(),
   SEED_SUPERADMIN_PASSWORD: z.string().min(12),
   SEED_DEMO_PASSWORD: z.string().min(8),
-  SEED_DEMO_PIN: z.string().regex(/^\d{4,6}$/),
 });
 
 async function upsertGroup(tx: Tx, name: string, slug: string) {
@@ -161,7 +160,7 @@ async function main() {
         [aNorte],
       );
       // Ana trabaja en las dos empresas del grupo A: al entrar elige en cuál marca.
-      const pinHash = await hashSecret(env.SEED_DEMO_PIN);
+      const passwordHash = await hashSecret(env.SEED_DEMO_PASSWORD);
       const ana = await tx
         .insert(employees)
         .values(
@@ -169,12 +168,12 @@ async function main() {
             companyId,
             cedula: '12345678',
             name: 'Ana Pérez',
-            pinHash,
+            passwordHash,
           })),
         )
         .onConflictDoUpdate({
           target: [employees.companyId, employees.cedula],
-          set: { pinHash, active: true },
+          set: { passwordHash, active: true },
         })
         .returning({ id: employees.id, companyId: employees.companyId });
       const structureA = (await installSampleCatalog(tx, groupA))!;

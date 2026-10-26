@@ -53,22 +53,23 @@ describe('Auth y health (e2e)', () => {
     findStaffSession: jest.fn((id: string) => sessions.get(id)),
     findEmployeeSession: jest.fn((id: string) => sessions.get(id)),
     registerCompany: jest.fn(),
+    setEmployeePasswordHash: jest.fn(),
   };
 
   beforeAll(async () => {
-    const [passwordHash, pinHash] = await Promise.all([
+    const [passwordHash, employeeHash] = await Promise.all([
       hashSecret('clave-segura'),
       hashSecret('4321'),
     ]);
     repo.findStaffCredentials.mockImplementation((email: string) =>
       email === staff.email ? { id: STAFF_ID, passwordHash } : undefined,
     );
-    // Ana trabaja en dos empresas del grupo A, con el mismo PIN.
+    // Ana trabaja en dos empresas del grupo A, con la misma clave: un PIN de antes, que sigue sirviendo.
     repo.findEmployeeCredentials.mockImplementation((cedula: string) =>
       cedula === employee.cedula
         ? [
-            { id: EMPLOYEE_ID, pinHash, company: NORTE },
-            { id: EMPLOYEE_SUR_ID, pinHash, company: SUR },
+            { id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE },
+            { id: EMPLOYEE_SUR_ID, passwordHash: employeeHash, company: SUR },
           ]
         : [],
     );
@@ -117,7 +118,7 @@ describe('Auth y health (e2e)', () => {
       .expect(400);
     await request(app.getHttpServer())
       .post('/api/auth/employee/login')
-      .send({ cedula: 'abc', pin: '12', companyId: 'no-es-uuid' })
+      .send({ cedula: 'abc', password: '', companyId: 'no-es-uuid' })
       .expect(400);
   });
 
@@ -144,16 +145,53 @@ describe('Auth y health (e2e)', () => {
 
     const choice = await agent
       .post('/api/auth/employee/login')
-      .send({ cedula: 'V-12.345.678', pin: '4321' })
+      .send({ cedula: 'V-12.345.678', password: '4321' })
       .expect(200, { companies: [NORTE, SUR] });
     expect(choice.headers['set-cookie']).toBeUndefined();
     await agent.get('/api/auth/me').expect(401);
 
     await agent
       .post('/api/auth/employee/login')
-      .send({ cedula: '12345678', pin: '4321', companyId: SUR.id })
+      .send({ cedula: '12345678', password: '4321', companyId: SUR.id })
       .expect(200, { user: employeeSur });
     await agent.get('/api/auth/me').expect(200, { user: employeeSur });
+  });
+
+  it('el colaborador cambia su contraseña; el personal de gestión no usa esta ruta', async () => {
+    const ana = request.agent(app.getHttpServer());
+    await ana
+      .post('/api/auth/employee/login')
+      .send({ cedula: '12345678', password: '4321', companyId: NORTE.id })
+      .expect(200);
+    const change = (body: object) =>
+      ana.post('/api/auth/employee/password').send(body);
+
+    await change({ currentPassword: '4321', newPassword: 'corta' }).expect(400);
+    await change({
+      currentPassword: 'equivocada',
+      newPassword: 'Nueva-clave-2026',
+    }).expect(400);
+    await change({
+      currentPassword: '4321',
+      newPassword: 'Nueva-clave-2026',
+    }).expect(204);
+    expect(repo.setEmployeePasswordHash.mock.calls[0][0]).toEqual([
+      EMPLOYEE_ID,
+      EMPLOYEE_SUR_ID,
+    ]);
+
+    const admin = request.agent(app.getHttpServer());
+    await admin
+      .post('/api/auth/staff/login')
+      .send({ email: staff.email, password: 'clave-segura' })
+      .expect(200);
+    await admin
+      .post('/api/auth/employee/password')
+      .send({
+        currentPassword: 'clave-segura',
+        newPassword: 'Nueva-clave-2026',
+      })
+      .expect(403);
   });
 
   it('rechaza credenciales incorrectas', async () => {
@@ -163,7 +201,7 @@ describe('Auth y health (e2e)', () => {
       .expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/employee/login')
-      .send({ cedula: '12345678', pin: '0000' })
+      .send({ cedula: '12345678', password: '0000' })
       .expect(401);
   });
 
@@ -193,7 +231,7 @@ describe('Auth y health (e2e)', () => {
     const attempt = (cedula: string) =>
       request(app.getHttpServer())
         .post('/api/auth/employee/login')
-        .send({ cedula, pin: '0000' });
+        .send({ cedula, password: '0000' });
 
     for (const cedula of ['99999999', 'V-99.999.999', '99.999.999'])
       await attempt(cedula).expect(401);

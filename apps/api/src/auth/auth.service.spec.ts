@@ -1,10 +1,10 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import type { SessionUser } from '../common/auth/session';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
-import { hashSecret } from './password';
+import { hashSecret, verifySecret } from './password';
 
 const STAFF_ID = '0b7f6a3e-7c1d-4b8e-9a51-2f4c6d8e0a11';
 const EMPLOYEE_ID = '5d2c9e41-3a7b-4f60-8c2d-91e4b6a7f022';
@@ -34,14 +34,14 @@ describe('AuthService', () => {
   let jwt: JwtService;
   let repo: jest.Mocked<AuthRepository>;
   let passwordHash: string;
-  let pinHash: string;
-  let otherPinHash: string;
+  let employeeHash: string;
+  let otherPasswordHash: string;
 
   beforeAll(async () => {
-    [passwordHash, pinHash, otherPinHash] = await Promise.all([
+    [passwordHash, employeeHash, otherPasswordHash] = await Promise.all([
       hashSecret('clave-segura'),
-      hashSecret('4321'),
-      hashSecret('9999'),
+      hashSecret('clave-de-ana'),
+      hashSecret('otra-clave'),
     ]);
   });
 
@@ -56,6 +56,7 @@ describe('AuthService', () => {
             findEmployeeCredentials: jest.fn(),
             findStaffSession: jest.fn(),
             findEmployeeSession: jest.fn(),
+            setEmployeePasswordHash: jest.fn(),
           },
         },
         {
@@ -117,11 +118,11 @@ describe('AuthService', () => {
     };
     const SUR = { id: '7a1c2e3d-0000-4000-8000-000000000002', name: 'A Sur' };
     const SUR_EMPLOYEE_ID = '5d2c9e41-3a7b-4f60-8c2d-91e4b6a7f099';
-    const input = { cedula: '12345678', pin: '4321' };
+    const input = { cedula: '12345678', password: 'clave-de-ana' };
 
     it('con una sola empresa abre la sesión directamente', async () => {
       repo.findEmployeeCredentials.mockResolvedValue([
-        { id: EMPLOYEE_ID, pinHash, company: NORTE },
+        { id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE },
       ]);
       repo.findEmployeeSession.mockResolvedValue(employee);
 
@@ -138,8 +139,8 @@ describe('AuthService', () => {
 
     it('con varias empresas devuelve las opciones sin abrir sesión', async () => {
       repo.findEmployeeCredentials.mockResolvedValue([
-        { id: EMPLOYEE_ID, pinHash, company: NORTE },
-        { id: SUR_EMPLOYEE_ID, pinHash, company: SUR },
+        { id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE },
+        { id: SUR_EMPLOYEE_ID, passwordHash: employeeHash, company: SUR },
       ]);
 
       await expect(service.loginEmployee(input)).resolves.toEqual({
@@ -150,8 +151,8 @@ describe('AuthService', () => {
 
     it('entra en la empresa elegida', async () => {
       repo.findEmployeeCredentials.mockResolvedValue([
-        { id: EMPLOYEE_ID, pinHash, company: NORTE },
-        { id: SUR_EMPLOYEE_ID, pinHash, company: SUR },
+        { id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE },
+        { id: SUR_EMPLOYEE_ID, passwordHash: employeeHash, company: SUR },
       ]);
       repo.findEmployeeSession.mockResolvedValue(employee);
 
@@ -160,10 +161,10 @@ describe('AuthService', () => {
       expect(repo.findEmployeeSession.mock.calls).toEqual([[SUR_EMPLOYEE_ID]]);
     });
 
-    it('solo ofrece las empresas donde el PIN coincide', async () => {
+    it('solo ofrece las empresas donde la contraseña coincide', async () => {
       repo.findEmployeeCredentials.mockResolvedValue([
-        { id: EMPLOYEE_ID, pinHash, company: NORTE },
-        { id: SUR_EMPLOYEE_ID, pinHash: otherPinHash, company: SUR },
+        { id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE },
+        { id: SUR_EMPLOYEE_ID, passwordHash: otherPasswordHash, company: SUR },
       ]);
       repo.findEmployeeSession.mockResolvedValue(employee);
 
@@ -174,7 +175,7 @@ describe('AuthService', () => {
 
     it('rechaza una empresa elegida donde no trabaja', async () => {
       repo.findEmployeeCredentials.mockResolvedValue([
-        { id: EMPLOYEE_ID, pinHash, company: NORTE },
+        { id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE },
       ]);
       await expect(
         service.loginEmployee({ ...input, companyId: SUR.id }),
@@ -183,15 +184,52 @@ describe('AuthService', () => {
 
     it.each([
       [
-        'un PIN incorrecto',
-        () => [{ id: EMPLOYEE_ID, pinHash, company: NORTE }],
+        'una contraseña incorrecta',
+        () => [{ id: EMPLOYEE_ID, passwordHash: employeeHash, company: NORTE }],
       ],
       ['una cédula sin registros', () => []],
     ])('rechaza %s', async (_caso, accounts) => {
       repo.findEmployeeCredentials.mockResolvedValue(accounts());
       await expect(
-        service.loginEmployee({ ...input, pin: '0000' }),
+        service.loginEmployee({ ...input, password: 'equivocada' }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('changeEmployeePassword', () => {
+    const SUR_EMPLOYEE_ID = '5d2c9e41-3a7b-4f60-8c2d-91e4b6a7f099';
+    const OTRA_ID = '5d2c9e41-3a7b-4f60-8c2d-91e4b6a7f0aa';
+    const company = { id: 'c', name: 'C' };
+    const ana = { id: EMPLOYEE_ID, cedula: '12345678' };
+    const input = {
+      currentPassword: 'clave-de-ana',
+      newPassword: 'clave-nueva-de-ana',
+    };
+
+    it('la cambia en todas las empresas donde la actual coincide', async () => {
+      repo.findEmployeeCredentials.mockResolvedValue([
+        { id: EMPLOYEE_ID, passwordHash: employeeHash, company },
+        { id: SUR_EMPLOYEE_ID, passwordHash: employeeHash, company },
+        { id: OTRA_ID, passwordHash: otherPasswordHash, company },
+      ]);
+
+      await service.changeEmployeePassword(ana, input);
+
+      const [[ids, hash]] = repo.setEmployeePasswordHash.mock.calls;
+      expect(ids).toEqual([EMPLOYEE_ID, SUR_EMPLOYEE_ID]);
+      await expect(verifySecret(hash, input.newPassword)).resolves.toBe(true);
+    });
+
+    it('rechaza una contraseña actual incorrecta sin cambiar nada', async () => {
+      repo.findEmployeeCredentials.mockResolvedValue([
+        { id: EMPLOYEE_ID, passwordHash: otherPasswordHash, company },
+        { id: SUR_EMPLOYEE_ID, passwordHash: employeeHash, company },
+      ]);
+
+      await expect(
+        service.changeEmployeePassword(ana, input),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.setEmployeePasswordHash.mock.calls).toHaveLength(0);
     });
   });
 

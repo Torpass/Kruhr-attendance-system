@@ -130,7 +130,7 @@ export const userCompanies = pgTable(
 );
 
 /**
- * Colaboradores: marcan desde el celular. Entran con cédula + PIN.
+ * Colaboradores: marcan desde el celular. Entran con cédula + contraseña.
  * Quien trabaja en varias empresas tiene un registro en cada una y elige dónde marcar al entrar.
  */
 export const employees = pgTable(
@@ -142,7 +142,7 @@ export const employees = pgTable(
       .references(() => companies.id),
     cedula: text().notNull(),
     name: text().notNull(),
-    pinHash: text().notNull(),
+    passwordHash: text().notNull(),
     active: boolean().notNull().default(true),
     hiredOn: date(),
     createdAt: createdAt(),

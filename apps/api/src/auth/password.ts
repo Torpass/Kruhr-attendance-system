@@ -3,7 +3,7 @@ import { hash, verify } from '@node-rs/argon2';
 // Argon2id con los parámetros mínimos que recomienda OWASP (19 MiB, 2 iteraciones).
 const OPTIONS = { memoryCost: 19_456, timeCost: 2, parallelism: 1 };
 
-/** Hashea una contraseña o un PIN. */
+/** Hashea una contraseña. */
 export function hashSecret(secret: string): Promise<string> {
   return hash(secret, OPTIONS);
 }

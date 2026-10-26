@@ -8,10 +8,6 @@ export const cedulaSchema = z
   .transform((value) => value.replace(/\D/g, ''))
   .pipe(z.string().regex(/^\d{5,10}$/, 'Cédula inválida'));
 
-export const pinSchema = z
-  .string()
-  .regex(/^\d{4,6}$/, 'El PIN tiene de 4 a 6 dígitos');
-
 /** Nombre de persona. Debe empezar por una letra: evita fórmulas al abrir el CSV en una hoja de cálculo. */
 export const personNameSchema = z
   .string()
@@ -42,7 +38,7 @@ export const companyCodeSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Solo minúsculas, números y guiones')
   .max(40);
 
-/** Contraseña de un usuario de gestión. */
+/** Contraseña nueva de un usuario de gestión o de un colaborador. */
 export const passwordSchema = z
   .string()
   .min(10, 'Al menos 10 caracteres')

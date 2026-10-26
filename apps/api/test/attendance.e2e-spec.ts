@@ -117,13 +117,17 @@ describe('Asistencia (integración)', () => {
     it('el analista da de alta, pero editar es del admin', async () => {
       const created = await agents.analystA
         .post(`/api/companies/${ids.norte}/employees`)
-        .send({ name: 'Carla Díaz', cedula: 'V-22.333.444', pin: '1234' })
+        .send({
+          name: 'Carla Díaz',
+          cedula: 'V-22.333.444',
+          password: 'Clave-inicial-1',
+        })
         .expect(201);
       expect(created.body.employee).toMatchObject({
         cedula: '22333444',
         active: true,
       });
-      expect(created.body.employee).not.toHaveProperty('pinHash');
+      expect(created.body.employee).not.toHaveProperty('passwordHash');
 
       const id = created.body.employee.id as string;
       await agents.analystA
@@ -139,12 +143,79 @@ describe('Asistencia (integración)', () => {
     it('rechaza una cédula repetida en la misma empresa y nombres que parecen fórmulas', async () => {
       await agents.adminA
         .post(`/api/companies/${ids.norte}/employees`)
-        .send({ name: 'Otra Ana', cedula: '12345678', pin: '1234' })
+        .send({
+          name: 'Otra Ana',
+          cedula: '12345678',
+          password: 'Clave-inicial-1',
+        })
         .expect(409);
       await agents.adminA
         .post(`/api/companies/${ids.norte}/employees`)
-        .send({ name: '=HYPERLINK("x")', cedula: '33444555', pin: '1234' })
+        .send({
+          name: '=HYPERLINK("x")',
+          cedula: '33444555',
+          password: 'Clave-inicial-1',
+        })
         .expect(400);
+    });
+
+    it('RRHH asigna la contraseña y el colaborador la cambia en todas sus empresas', async () => {
+      const cedula = '44555666';
+      const [norte] = await Promise.all(
+        [ids.norte, ids.sur].map(async (companyId) => {
+          const res = await agents.adminA
+            .post(`/api/companies/${companyId}/employees`)
+            .send({ name: 'Dani Rojas', cedula, password: 'Clave-inicial-1' })
+            .expect(201);
+          return res.body.employee.id as string;
+        }),
+      );
+
+      const login = (password: string) =>
+        request(app.getHttpServer())
+          .post('/api/auth/employee/login')
+          .send({ cedula, password });
+      const setPassword = (
+        agent: TestAgent,
+        companyId: string,
+        password: string,
+      ) =>
+        agent
+          .put(`/api/companies/${companyId}/employees/${norte}/password`)
+          .send({ password });
+      await setPassword(agents.analystA, ids.norte, 'corta').expect(400);
+      await setPassword(agents.adminB, ids.norte, 'Clave-de-otro-1').expect(
+        404,
+      );
+      await setPassword(
+        agents.analystA,
+        ids.norte,
+        'Clave-del-analista',
+      ).expect(204);
+      // Solo cambió en Norte: con esa clave entra directo ahí.
+      const direct = await login('Clave-del-analista').expect(200);
+      expect(direct.body.user).toMatchObject({ id: norte });
+      await setPassword(agents.analystA, ids.norte, 'Clave-inicial-1').expect(
+        204,
+      );
+      const dani = request.agent(app.getHttpServer());
+      await dani
+        .post('/api/auth/employee/login')
+        .send({ cedula, password: 'Clave-inicial-1', companyId: ids.sur })
+        .expect(200);
+      await dani
+        .post('/api/auth/employee/password')
+        .send({
+          currentPassword: 'Clave-inicial-1',
+          newPassword: 'Clave-propia-2026',
+        })
+        .expect(204);
+
+      await login('Clave-inicial-1').expect(401);
+      const choice = await login('Clave-propia-2026').expect(200);
+      expect(
+        choice.body.companies.map((c: { id: string }) => c.id).sort(),
+      ).toEqual([ids.norte, ids.sur].sort());
     });
   });
 

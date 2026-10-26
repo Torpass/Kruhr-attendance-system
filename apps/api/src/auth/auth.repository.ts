@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { SessionUser } from '../common/auth/session';
 import { DB } from '../database/database.constants';
 import type { Database } from '../database/database.module';
@@ -8,7 +8,7 @@ import { companies, employees, userCompanies, users } from '../database/schema';
 
 export interface EmployeeCredentials {
   id: string;
-  pinHash: string;
+  passwordHash: string;
   company: { id: string; name: string };
 }
 
@@ -32,7 +32,7 @@ export class AuthRepository {
     return this.db
       .select({
         id: employees.id,
-        pinHash: employees.pinHash,
+        passwordHash: employees.passwordHash,
         company: { id: companies.id, name: companies.name },
       })
       .from(employees)
@@ -45,6 +45,13 @@ export class AuthRepository {
         ),
       )
       .orderBy(asc(companies.name));
+  }
+
+  async setEmployeePasswordHash(ids: string[], passwordHash: string) {
+    await this.db
+      .update(employees)
+      .set({ passwordHash })
+      .where(inArray(employees.id, ids));
   }
 
   /** Grupo + primera empresa + admin, todo o nada. Devuelve el id del admin. */

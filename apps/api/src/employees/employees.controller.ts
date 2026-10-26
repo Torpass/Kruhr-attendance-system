@@ -2,17 +2,22 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { Roles } from '../common/auth/roles.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
   createEmployeeSchema,
+  setEmployeePasswordSchema,
   updateEmployeeSchema,
   type CreateEmployeeInput,
+  type SetEmployeePasswordInput,
   type UpdateEmployeeInput,
 } from './employees.schemas';
 import { EmployeesService } from './employees.service';
@@ -46,7 +51,7 @@ export class EmployeesController {
     return { employee: await this.employees.create(companyId, body) };
   }
 
-  /** Editar, restablecer el PIN o desactivar es cosa del admin. */
+  /** Editar o desactivar es cosa del admin. */
   @Roles('admin')
   @Patch(':employeeId')
   async update(
@@ -58,5 +63,17 @@ export class EmployeesController {
     return {
       employee: await this.employees.update(companyId, employeeId, body),
     };
+  }
+
+  /** Admin y analista asignan la contraseña, p. ej. cuando el colaborador la olvida. */
+  @Put(':employeeId/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async setPassword(
+    @Param('companyId') companyId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+    @Body(new ZodValidationPipe(setEmployeePasswordSchema))
+    { password }: SetEmployeePasswordInput,
+  ) {
+    await this.employees.setPassword(companyId, employeeId, password);
   }
 }
