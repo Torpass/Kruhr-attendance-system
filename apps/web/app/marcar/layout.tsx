@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RoleGate } from "@/components/role-gate";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { useLogout, useSession } from "@/lib/session";
@@ -10,7 +11,7 @@ export default function MarcarLayout({ children }: LayoutProps<"/marcar">) {
   const logout = useLogout();
 
   return (
-    <>
+    <RoleGate roles={["employee"]}>
       <header className="sticky top-0 z-10 border-b border-borde bg-white">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
           <Link href="/marcar" aria-label="Inicio">
@@ -34,6 +35,6 @@ export default function MarcarLayout({ children }: LayoutProps<"/marcar">) {
         )}
         {children}
       </main>
-    </>
+    </RoleGate>
   );
 }
