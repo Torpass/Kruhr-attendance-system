@@ -271,7 +271,6 @@ function PeriodBody({
             employee={panel.employee}
             period={data.period}
             focus={panel.focus}
-            runs={runs}
           />
         )}
       </Dialog>

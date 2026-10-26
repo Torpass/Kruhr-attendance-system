@@ -26,7 +26,7 @@ const ACTIONS: Record<PayrollRun["state"], { action: Action; label: string; prim
       action: "validate",
       label: "Validar",
       primary: true,
-      confirm: "Al validar, los turnos de este período ya no se pueden corregir. ¿Continuar?",
+      confirm: "Al validar, los turnos del período de quienes tienen recibo en este lote ya no se pueden corregir. ¿Continuar?",
     },
   ],
   validated: [

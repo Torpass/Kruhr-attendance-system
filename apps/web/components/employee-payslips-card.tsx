@@ -8,13 +8,7 @@ import { Card, EmptyState } from "@/components/ui/card";
 import { api, errorMessage } from "@/lib/api";
 import { formatMoney, RUN_STATE } from "@/lib/money";
 import { formatDay } from "@/lib/time";
-import type { RunState } from "@/lib/types";
-
-type EmployeePayslip = {
-  id: string;
-  net: number;
-  run: { id: string; name: string; dateFrom: string; dateTo: string; state: RunState };
-};
+import type { EmployeePayslip } from "@/lib/types";
 
 /** Recibos de pago del colaborador (lotes calculados, validados o pagados); el PDF, si está pagado. */
 export function EmployeePayslipsCard({ companyId, employeeId }: { companyId: string; employeeId: string }) {

@@ -11,7 +11,7 @@ import { Card, EmptyState, Stat } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { api, errorMessage } from "@/lib/api";
 import { formatDay, formatHours, formatTime } from "@/lib/time";
-import type { AttendanceDay, AttendanceReport, PayrollRun } from "@/lib/types";
+import type { AttendanceDay, AttendanceReport } from "@/lib/types";
 
 type Tone = "marca" | "exito" | "alerta" | "error" | "neutro";
 
@@ -131,10 +131,6 @@ export default function ControlHorarioPage() {
   const report = useQuery({
     queryKey: ["companies", companyId, "attendance", picker.params],
     queryFn: () => api<AttendanceReport>(`/companies/${companyId}/periods/attendance?${picker.params}`),
-  });
-  const runs = useQuery({
-    queryKey: ["companies", companyId, "payroll-runs"],
-    queryFn: () => api<{ runs: PayrollRun[] }>(`/companies/${companyId}/payroll-runs`).then((r) => r.runs),
   });
 
   const data = report.data;
@@ -277,7 +273,6 @@ export default function ControlHorarioPage() {
             employee={panel}
             period={data.period}
             focus={null}
-            runs={runs.data ?? []}
           />
         )}
       </Dialog>

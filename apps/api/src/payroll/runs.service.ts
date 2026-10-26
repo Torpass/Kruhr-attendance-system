@@ -46,7 +46,7 @@ const PERIOD_NAME_FORMAT = new Intl.DateTimeFormat('es-VE', {
 /**
  * Lotes de recibos: se calculan con las horas del motor de asistencia, los parámetros vigentes
  * al cierre del período y las reglas actuales de la estructura. Al validarse, quedan fijos y
- * bloquean las correcciones de turnos de ese período (ver ShiftsRepository).
+ * bloquean las correcciones de turnos del período de quienes tienen recibo (ver ShiftsRepository).
  */
 @Injectable()
 export class RunsService {

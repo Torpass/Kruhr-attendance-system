@@ -270,7 +270,7 @@ describe('Nómina (integración)', () => {
         .expect(200);
     });
 
-    it('validado: no se recalcula ni se corrigen turnos del período', async () => {
+    it('validado: no se recalcula ni se corrigen los turnos del período de quien tiene recibo', async () => {
       await agents.analystA
         .post(company(`payroll-runs/${runId}/recompute`))
         .expect(409);
@@ -295,12 +295,29 @@ describe('Nómina (integración)', () => {
       await agents.analystA
         .post(company('shifts'))
         .send({
-          employeeId: ids.ana,
+          employeeId: ids.luis,
           clockIn: caracas('2026-10-08T08:00'),
           clockOut: caracas('2026-10-08T12:00'),
           reason: 'Turno olvidado',
         })
         .expect(409);
+      // Ana no tiene contrato, así que el lote no le hizo recibo: sus turnos siguen abiertos.
+      const anaShift = await agents.analystA
+        .post(company('shifts'))
+        .send({
+          employeeId: ids.ana,
+          clockIn: caracas('2026-10-08T08:00'),
+          clockOut: caracas('2026-10-08T12:00'),
+          reason: 'Turno olvidado',
+        })
+        .expect(201);
+      await agents.analystA
+        .patch(company(`shifts/${anaShift.body.shift.id}`))
+        .send({
+          clockOut: caracas('2026-10-08T13:00'),
+          reason: 'Salió una hora más tarde',
+        })
+        .expect(200);
       // Fuera del período sí se puede.
       await agents.analystA
         .post(company('shifts'))

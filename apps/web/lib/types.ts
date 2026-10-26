@@ -202,6 +202,13 @@ export type PayrollRun = {
   net?: number | null;
 };
 
+/** Recibo en la lista de un colaborador, con su lote. */
+export type EmployeePayslip = {
+  id: string;
+  net: number;
+  run: { id: string; name: string; dateFrom: string; dateTo: string; state: RunState };
+};
+
 export type PayslipSummary = {
   id: string;
   wage: number;
