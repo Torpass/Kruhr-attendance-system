@@ -23,12 +23,12 @@ Navegador ──► Vercel · Next.js 16 (apps/web)
 
 Ya está listo:
 - **Esquema de la fase A** (empresas, usuarios, colaboradores, turnos y correcciones), con migraciones de Drizzle y seed.
-- **Login real** para gestión (correo + contraseña) y para colaboradores (cédula + PIN; si trabajan en varias empresas, eligen en cuál marcar), con Argon2id y sesión JWT en una cookie `httpOnly`.
+- **Login real** para gestión (correo + contraseña) y para colaboradores (cédula + contraseña; si trabajan en varias empresas, eligen en cuál marcar), con Argon2id y sesión JWT en una cookie `httpOnly`.
 - **API de asistencia:** marcar entrada y salida, ver el día (dentro / sin marcar / sin salida), colaboradores, correcciones con motivo e historial, cálculo del período con alertas y exportación a CSV. Toda ruta de empresa valida rol y empresa (404 si no es tuya).
 - **Motor de cálculo** en `packages/core`, con los dos ejemplos del enunciado entre sus tests.
 - **Pantallas:**
-  - colaborador (móvil): `/marcar` y `/marcar/historial`;
-  - RRHH con selector de empresa: `/rrhh/<empresa>/hoy`, `colaboradores` (alta, ficha, corregir con motivo e historial) y `periodos` (semana, quincenas o rango, alertas y CSV);
+  - colaborador (móvil): `/marcar`, `/marcar/historial` y `/marcar/contrasena` (cambiar su contraseña);
+  - RRHH con selector de empresa: `/rrhh/<empresa>/hoy`, `colaboradores` (alta, ficha, asignar contraseña, corregir con motivo e historial) y `periodos` (semana, quincenas o rango, alertas y CSV);
   - `/registro` de empresas;
   - `/rrhh/<empresa>/equipo`: el admin gestiona a los admins y analistas de su alcance;
   - `/admin`: el superusuario gestiona grupos, empresas y sus admins.
@@ -79,7 +79,7 @@ El seed es idempotente: si lo vuelves a correr, actualiza las claves. Crea estos
 | superadmin | `SEED_SUPERADMIN_EMAIL` | `SEED_SUPERADMIN_PASSWORD` |
 | admin de las empresas A Norte y A Sur | `admin@empresa-a.test` | `SEED_DEMO_PASSWORD` |
 | analista de A Norte | `analista@empresa-a.test` | `SEED_DEMO_PASSWORD` |
-| colaboradora de A Norte y A Sur (elige la empresa al entrar) | cédula `12345678` | PIN `SEED_DEMO_PIN` |
+| colaboradora de A Norte y A Sur (elige la empresa al entrar) | cédula `12345678` | `SEED_DEMO_PASSWORD` |
 | admin de la empresa B | `admin@empresa-b.test` | `SEED_DEMO_PASSWORD` |
 
 Si `DATABASE_URL` apunta a Supabase, `pnpm db:migrate` y `pnpm db:seed` actúan sobre producción. Para usar la base local, anteponles `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/marcaje`: la variable de entorno tiene prioridad sobre `.env`.
