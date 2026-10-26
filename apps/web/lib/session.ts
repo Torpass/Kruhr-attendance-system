@@ -9,7 +9,15 @@ export function useSession() {
     queryKey: ["session"],
     queryFn: () => api<{ user: SessionUser }>("/auth/me").then(({ user }) => user),
     staleTime: 60_000,
+    // El navegador guarda una sola sesión: si se entró con otra cuenta en otra pestaña,
+    // esta se entera al volver a ella.
+    refetchOnWindowFocus: "always",
   });
+}
+
+/** Pantalla de inicio de cada quien. */
+export function homeFor(user: SessionUser) {
+  return user.kind === "employee" ? "/marcar" : user.role === "superadmin" ? "/admin" : "/rrhh";
 }
 
 export function useLogout() {
