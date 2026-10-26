@@ -106,7 +106,7 @@ El esquema se diseñó completo desde el inicio, pero solo la fase A está migra
 | `/marcar/recibos` | employee | Sus recibos validados o pagados |
 | `/rrhh/kpis` | admin | Costo de nómina, horas extra por empresa y alertas |
 
-Cuando un lote está `validated` o `paid`, la API bloquea las correcciones de turnos de esa empresa dentro de ese rango.
+Cuando un lote está `validated` o `paid`, la API bloquea las correcciones de turnos dentro de ese rango de los colaboradores que tienen recibo en él. Quien quedó fuera del lote (sin contrato con esa estructura, por ejemplo) puede seguir corrigiendo sus turnos.
 
 ---
 
@@ -230,7 +230,7 @@ payslip_lines             payslip_id, code, name, sequence, quantity, amount, ra
 **Ciclo de vida del lote**
 - **Crear:** se calcula de inmediato (`computed`). Hay un recibo por cada colaborador con contrato de esa estructura que toque el período; si cambió de contrato a mitad de período, rige el último.
 - **Recalcular / cambiar entradas:** solo en `computed`. Toma las horas actuales de la asistencia, las reglas actuales de la estructura y los parámetros vigentes al cierre del período.
-- **Validar:** exige que los colaboradores del lote no tengan turnos abiertos en el período, porque esas horas no se pagarían. Una vez validado, el lote queda fijo y **bloquea** las correcciones y los turnos manuales en su rango. Lo hace `ShiftsRepository`, dentro de la transacción de la corrección.
+- **Validar:** exige que los colaboradores del lote no tengan turnos abiertos en el período, porque esas horas no se pagarían. Una vez validado, el lote queda fijo y **bloquea** las correcciones y los turnos manuales en su rango de los colaboradores con recibo en él. Lo hace `ShiftsRepository`, dentro de la transacción de la corrección.
 - **Pagar:** de `validated` a `paid`. **Anular:** desde `computed` o `validated`. Un lote anulado deja de bloquear y ya no cuenta para los solapes.
 - **El colaborador** ve sus recibos validados o pagados en `/marcar/recibos`, solo con las líneas visibles.
 - **Recibo en PDF:** cuando el lote está **pagado**, RRHH descarga el recibo de cada colaborador o todo el lote en un PDF (una página por recibo), y el colaborador descarga el suyo desde `/marcar/recibos`.
